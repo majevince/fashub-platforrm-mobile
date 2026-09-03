@@ -1,0 +1,48 @@
+services:
+  mobile:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile.dev
+    container_name: fashub-mobile-dev
+    ports:
+      # Host 8082 → container 8081, not 8081→8081: a local (non-Docker)
+      # `expo start` may already be bound to host 8081. The container's own
+      # Metro server always listens on 8081 internally regardless of the
+      # host-side port chosen here.
+      - "8082:8081"
+    environment:
+      - EXPO_PUBLIC_API_URL=http://app:3000
+      # Only matters for a physical device's Expo Go app connecting over
+      # LAN — it reads this to know what address to open, since the
+      # container's own internal IP isn't reachable from outside Docker.
+      # Not needed for the browser preview at http://localhost:8082, which
+      # works regardless. Set to your host machine's LAN IP if you need a
+      # physical device to connect; defaults to localhost (browser-only).
+      - EXPO_PACKAGER_HOSTNAME=${EXPO_PACKAGER_HOSTNAME:-localhost}
+    volumes:
+      - ./apps/mobile:/app/apps/mobile
+      - ./packages:/app/packages
+      # Anonymous volumes shadow the bind mounts above for node_modules
+      # specifically, so the container keeps what it installed at build
+      # time instead of it being replaced by the host's (likely absent or
+      # differently-hoisted) node_modules. Same pattern as fashub's own
+      # docker-compose.dev.yml.
+      - /app/node_modules
+      - /app/apps/mobile/node_modules
+    networks:
+      - fashub-dev-network
+
+networks:
+  # References the network fashub's OWN docker-compose.dev.yml creates —
+  # Compose prefixes bridge network names with the project name (the
+  # directory basename, "fashub", confirmed from the currently-running
+  # prod stack's fashub_backend-network/fashub_frontend-network), so the
+  # actual resource name is fashub_fashub-dev-network, not the bare name
+  # written inside that file. Must already exist — start fashub's dev
+  # stack first: `docker compose -f docker-compose.dev.yml up -d` from
+  # /home/vince/project/fashub. This intentionally never touches fashub's
+  # production stack (docker-compose.yml / fashub_backend-network), which
+  # is live right now.
+  fashub-dev-network:
+    external: true
+    name: fashub_fashub-dev-network

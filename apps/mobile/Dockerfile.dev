@@ -1,0 +1,26 @@
+# Development image for the Expo dev server — not a native iOS/Android
+# build (Linux containers can't run either runtime; iOS additionally
+# requires macOS by Apple's own restriction). This runs Metro, which serves
+# two things from the same port: a browser-viewable web preview (via
+# react-native-web), and the JS bundle/manifest for Expo Go or a simulator
+# on the host to connect to.
+#
+# Build context is the monorepo root (see docker-compose.yml), since this
+# app depends on the workspace packages under packages/*.
+FROM node:20-alpine
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+COPY package.json package-lock.json* tsconfig.base.json ./
+COPY packages ./packages
+COPY apps/mobile ./apps/mobile
+
+RUN npm install
+
+WORKDIR /app/apps/mobile
+
+EXPOSE 8081
+
+CMD ["npx", "expo", "start", "--host", "lan"]
