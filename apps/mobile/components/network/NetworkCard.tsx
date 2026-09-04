@@ -38,13 +38,18 @@ export function NetworkCard({
 }) {
   const roleColor = ROLE_COLORS[profile.role] ?? ROLE_COLOR_FALLBACK;
   const avatarUri = resolveMediaUrl(profile.avatar);
+  const coverUri = resolveMediaUrl(profile.coverPhoto);
   const tags = profile.specialties.length > 0 ? profile.specialties : profile.stylePreferences;
   const dotColor = AVAILABILITY_DOT[profile.availabilityStatus] ?? AVAILABILITY_DOT.available;
 
   return (
     <Pressable onPress={onPress} style={{ flex: 1, backgroundColor: '#fff', borderWidth: 0.5, borderColor: '#ece6db', borderRadius: 14, overflow: 'hidden' }}>
       <View style={{ height: 44 }}>
-        <LinearGradient colors={['#7C3AED', '#a855f7', '#e0459b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.5 }} style={{ width: '100%', height: '100%' }} />
+        {coverUri ? (
+          <Image source={{ uri: coverUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        ) : (
+          <LinearGradient colors={['#7C3AED', '#a855f7', '#e0459b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.5 }} style={{ width: '100%', height: '100%' }} />
+        )}
         {distanceKm != null ? (
           <View style={{ position: 'absolute', top: 5, left: 6, backgroundColor: '#141210', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
             <Text style={{ fontSize: 8, fontWeight: '600', color: '#fff' }}>{distanceKm < 1 ? '<1 km' : `${Math.round(distanceKm)} km`}</Text>

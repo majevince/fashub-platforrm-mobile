@@ -85,7 +85,7 @@ export default function ProfileMenuScreen() {
 
         <View style={{ paddingHorizontal: spacing.sm, paddingTop: spacing.xs }}>
           {menuItem(LayoutDashboard, isBusiness ? 'Studio Dashboard' : 'Dashboard', () => router.push('/profile/dashboard'))}
-          {menuItem(UserIcon, 'My Profile', () => router.push('/profile/my-profile'))}
+          {menuItem(UserIcon, 'My Profile', () => router.push(`/profile/${user.id}`))}
           {menuItem(ListTree, 'Workflows', () => router.push('/profile/workflows'))}
           {menuItem(Heart, 'Favorites', () => router.push('/profile/favorites'))}
           {showInventory ? menuItem(Shirt, 'Inventory', () => router.push('/profile/inventory'), { tint: colors.gold, badge: 'Global' }) : null}

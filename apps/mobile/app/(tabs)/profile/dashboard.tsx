@@ -5,9 +5,15 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Star, MessageCircle, Package, CheckCircle2, User as UserIcon, Shirt, ListTree, Heart } from 'lucide-react-native';
 import { useTheme } from '../../../theme/ThemeProvider';
 import { useAuth } from '../../../context/AuthContext';
-import { getUserProfile, getRatingStats, getConversations } from '@fashub/api-client';
-import type { ProfileDetail } from '@fashub/types';
+import { getUserProfile, getRatingStats, getConversations, getPostsByUser, getReviews } from '@fashub/api-client';
+import type { ProfileDetail, RatingStatsSummary, UserPost, Review } from '@fashub/types';
 import { LoadingState } from '../../../components/LoadingState';
+import { calcProfileStrength } from '../../../lib/profileStrength';
+import { ProfileStrengthCard } from '../../../components/dashboard/ProfileStrengthCard';
+import { InsightsCard } from '../../../components/dashboard/InsightsCard';
+import { RecentPostsCard } from '../../../components/dashboard/RecentPostsCard';
+import { RatingBreakdownCard } from '../../../components/dashboard/RatingBreakdownCard';
+import { RecentReviewsCard } from '../../../components/dashboard/RecentReviewsCard';
 
 const isProfessional = (role?: string) => role === 'designer' || role === 'tailor';
 
@@ -19,12 +25,18 @@ const isProfessional = (role?: string) => role === 'designer' || role === 'tailo
  * hardcoded mock stats (Recent Orders, totalSpent — literally a static
  * array in the component, confirmed by reading it directly) — this screen
  * doesn't replicate that mock data, showing only what's actually backed by
- * an API. Followers/Following counts and the business-tier revenue
- * analytics chart are flagged as not built: no confirmed real data source
- * for the former in GET /api/users/[userId] (its route was read directly
- * and doesn't compute a follower count), and the latter needs a
- * /api/business/analytics client not yet built — both real web features,
- * not silently dropped, just not in this pass.
+ * an API. The business-tier revenue analytics dashboard (bookings/revenue/
+ * storefront — a completely different, booking-centric page on web) is
+ * also not built here — flagged as a separate, larger scope item, not
+ * silently dropped.
+ *
+ * Insights / Recent Posts / Profile Strength / Rating Breakdown / Reviews
+ * (below the Quick Actions row) are designer/tailor-only, matching web:
+ * confirmed via Step 0 that Individual's dashboard has none of these
+ * (individuals aren't rateable and don't post in this sense), and its own
+ * "Profile Strength" reads a `measurements` field that GET
+ * /api/users/[userId] never returns — no confirmed real data source for
+ * it on mobile, so it's flagged rather than built with a guessed input.
  */
 export default function DashboardScreen() {
   const { colors, typeScale, spacing, radius } = useTheme();
@@ -32,21 +44,28 @@ export default function DashboardScreen() {
   const router = useRouter();
 
   const [detail, setDetail] = useState<ProfileDetail | null>(null);
-  const [rating, setRating] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+  const [rating, setRating] = useState<(RatingStatsSummary & { componentRatings?: Record<string, number>; distribution?: { stars: number; count: number; percentage: number }[] }) | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [recentPosts, setRecentPosts] = useState<UserPost[]>([]);
+  const [recentReviews, setRecentReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
+    const pro = isProfessional(user.role);
     Promise.all([
       getUserProfile(user.id, user.id),
-      isProfessional(user.role) ? getRatingStats(user.id) : Promise.resolve(null),
+      pro ? getRatingStats(user.id) : Promise.resolve(null),
       getConversations(user.id).then((convs) => convs.reduce((sum, c) => sum + c.unreadCount, 0)),
+      pro ? getPostsByUser(user.id, { limit: 6 }).then((r) => r.posts).catch(() => []) : Promise.resolve([]),
+      pro ? getReviews(user.id, { limit: 3 }).then((r) => r.reviews).catch(() => []) : Promise.resolve([]),
     ])
-      .then(([profile, ratingRes, unread]) => {
+      .then(([profile, ratingRes, unread, posts, reviews]) => {
         setDetail(profile);
         if (ratingRes) setRating(ratingRes);
         setUnreadMessages(unread);
+        setRecentPosts(posts);
+        setRecentReviews(reviews);
       })
       .finally(() => setLoading(false));
   }, [user]);
@@ -101,11 +120,25 @@ export default function DashboardScreen() {
           <View>
             <Text style={{ ...typeScale.label, fontFamily: undefined, fontWeight: '600', textTransform: 'uppercase', color: colors.inkSoft, marginBottom: 10 }}>QUICK ACTIONS</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              {quickAction(UserIcon, 'My Profile', () => router.push('/profile/my-profile'))}
+              {quickAction(UserIcon, 'My Profile', () => router.push(`/profile/${user.id}`))}
               {pro ? quickAction(Shirt, 'Inventory', () => router.push('/profile/inventory')) : quickAction(Heart, 'Favorites', () => router.push('/profile/favorites'))}
               {quickAction(ListTree, 'Workflows', () => router.push('/profile/workflows'))}
             </View>
           </View>
+
+          {pro ? (
+            <InsightsCard userId={user.id} isPro={detail?.subscriptionTier === 'pro' || detail?.subscriptionTier === 'business'} />
+          ) : null}
+
+          {pro ? <RecentPostsCard posts={recentPosts} /> : null}
+
+          {pro && detail && (user.role === 'designer' || user.role === 'tailor') ? (
+            <ProfileStrengthCard {...calcProfileStrength(detail, professionalDetail, user.role)} />
+          ) : null}
+
+          {pro && rating ? <RatingBreakdownCard rating={rating} /> : null}
+
+          {pro ? <RecentReviewsCard userId={user.id} totalReviews={rating?.totalReviews ?? 0} reviews={recentReviews} /> : null}
         </ScrollView>
       )}
     </SafeAreaView>

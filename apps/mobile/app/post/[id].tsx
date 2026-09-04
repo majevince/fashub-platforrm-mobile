@@ -13,6 +13,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { useCommentsThread } from '../../components/feed/useCommentsThread';
 import { CommentsList, CommentsComposer, CommentsMenuSheet } from '../../components/feed/CommentsThreadView';
+import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -44,6 +45,7 @@ export default function PostDetailScreen() {
   const [post, setPost] = useState<PostDetail | null>(null);
   const [error, setError] = useState('');
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -89,6 +91,7 @@ export default function PostDetailScreen() {
 
   const avatarUri = resolveMediaUrl(post.authorAvatar);
   const images = post.images;
+  const resolvedImages = images.map((uri) => resolveMediaUrl(uri)).filter((v): v is string => !!v);
   const verified = isVerified({ subscriptionTier: post.authorSubscriptionTier, verified: post.authorProfile.isVerified });
 
   const onMediaScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -134,7 +137,9 @@ export default function PostDetailScreen() {
               <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#0c0c0c' }}>
                 <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onMediaScroll}>
                   {images.map((uri, i) => (
-                    <Image key={i} source={{ uri: resolveMediaUrl(uri) ?? undefined }} style={{ width: SCREEN_W, height: '100%' }} contentFit="cover" />
+                    <Pressable key={i} onPress={() => { setMediaIndex(i); setGalleryOpen(true); }} style={{ width: SCREEN_W, height: '100%' }}>
+                      <Image source={{ uri: resolveMediaUrl(uri) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                    </Pressable>
                   ))}
                 </ScrollView>
                 {images.length > 1 ? (
@@ -222,6 +227,13 @@ export default function PostDetailScreen() {
       </KeyboardAvoidingView>
 
       {thread.menuFor && <CommentsMenuSheet actions={thread.menuActions} onClose={thread.closeMenu} />}
+
+      <PhotoGalleryViewer
+        visible={galleryOpen}
+        images={resolvedImages}
+        initialIndex={mediaIndex}
+        onClose={() => setGalleryOpen(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -130,6 +130,27 @@ export interface PostDetail {
   comments: PostComment[];
 }
 
+/**
+ * Matches GET /api/posts?authorId= exactly (app/api/posts/route.ts) — used
+ * for Dashboard's "Recent Posts". Distinct from FeedPost: this route's
+ * transform spreads the raw Post row plus authorName/authorAvatar/authorRole
+ * only, omitting authorSubscriptionTier/authorIsVerified that GET /api/feed
+ * adds.
+ */
+export interface UserPost {
+  id: string;
+  authorId: string;
+  title: string;
+  description: string;
+  images: string[];
+  videos: string[];
+  category: string;
+  likes: string[];
+  interests: string[];
+  comments: PostComment[];
+  createdAt: string;
+}
+
 export interface FeedResponse {
   posts: FeedPost[];
   nextCursor: string | null;

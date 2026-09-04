@@ -1,5 +1,12 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './http';
-import type { PostComment, CreatePostPayload, CommentReactionType, PostDetail } from '@fashub/types';
+import type { PostComment, CreatePostPayload, CommentReactionType, PostDetail, UserPost } from '@fashub/types';
+
+/** Matches GET /api/posts?authorId=&limit= exactly — sorted createdAt desc server-side, no client re-sort needed. Used for Dashboard's "Recent Posts". */
+export function getPostsByUser(userId: string, opts: { limit?: number } = {}): Promise<{ posts: UserPost[]; count: number }> {
+  const params = new URLSearchParams({ authorId: userId });
+  if (opts.limit) params.set('limit', String(opts.limit));
+  return apiGet(`/api/posts?${params.toString()}`);
+}
 
 /**
  * Matches POST /api/posts exactly — JSON body, images/videos are

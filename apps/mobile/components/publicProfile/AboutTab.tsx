@@ -4,6 +4,18 @@ import { AtSign, Globe, Phone, Mail, Wallet } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import type { ProfileDetail, IndividualProfileDetail, ProfessionalProfileDetail } from '@fashub/types';
 
+const SERVICE_LABELS: Record<string, string> = {
+  customDesign: 'Custom Design',
+  alterations: 'Alterations',
+  consulting: 'Design Consulting',
+  onlineOrders: 'Online Orders',
+  inPersonConsultation: 'In-Person Consultation',
+  customTailoring: 'Custom Tailoring',
+  repairs: 'Repairs',
+  urgentService: 'Urgent Service',
+  pickupDelivery: 'Pickup & Delivery',
+};
+
 export function AboutTab({
   profile,
   professionalDetail,
@@ -19,6 +31,13 @@ export function AboutTab({
   const tags = 'specialties' in (detail ?? {}) ? (detail as ProfessionalProfileDetail).specialties : (detail as IndividualProfileDetail | null)?.stylePreferences;
   const businessName = detail && 'businessName' in detail ? detail.businessName : null;
   const priceRange = detail && 'priceRange' in detail ? detail.priceRange : (detail as IndividualProfileDetail | null)?.preferredPriceRange;
+  // Matches web's Overview tab "Services Offered" card exactly — the same
+  // fixed boolean flags Settings' Services screen edits, read back here.
+  const professional = professionalDetail as ProfessionalProfileDetail | null | undefined;
+  const activeServices = professional
+    ? Object.keys(SERVICE_LABELS).filter((key) => (professional as unknown as Record<string, unknown>)[key] === true)
+    : [];
+  const customServices = professional?.customServices ?? [];
 
   return (
     <View style={{ gap: 20 }}>
@@ -38,6 +57,24 @@ export function AboutTab({
             {tags.map((t) => (
               <View key={t} style={{ backgroundColor: '#F3EDFB', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
                 <Text style={{ fontSize: 10, fontWeight: '500', color: '#6D28D9' }}>{t}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {activeServices.length > 0 || customServices.length > 0 ? (
+        <View>
+          <Text style={{ ...typeScale.label, fontFamily: undefined, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, color: colors.inkSoft, marginBottom: 6 }}>SERVICES OFFERED</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {activeServices.map((key) => (
+              <View key={key} style={{ backgroundColor: colors.ivoryDeep, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 10.5, fontWeight: '500', color: colors.ink }}>{SERVICE_LABELS[key]}</Text>
+              </View>
+            ))}
+            {customServices.map((item) => (
+              <View key={item} style={{ backgroundColor: colors.ivoryDeep, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 10.5, fontWeight: '500', color: colors.ink }}>{item}</Text>
               </View>
             ))}
           </View>

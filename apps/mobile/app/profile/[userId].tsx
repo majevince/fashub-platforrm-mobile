@@ -18,6 +18,7 @@ import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
 import { AboutTab } from '../../components/publicProfile/AboutTab';
 import { PortfolioTab } from '../../components/publicProfile/PortfolioTab';
 import { ProjectsTab } from '../../components/publicProfile/ProjectsTab';
+import { ServicesTab } from '../../components/publicProfile/ServicesTab';
 import { ReviewsTab } from '../../components/publicProfile/ReviewsTab';
 import { StatsTab } from '../../components/publicProfile/StatsTab';
 import { InventoryTab } from '../../components/publicProfile/InventoryTab';
@@ -35,7 +36,7 @@ const AVAILABILITY_LABEL: Record<string, { label: string; color: string }> = {
   unavailable: { label: 'Unavailable', color: '#9CA3AF' },
 };
 
-type TabKey = 'about' | 'portfolio' | 'projects' | 'reviews' | 'stats' | 'inventory';
+type TabKey = 'about' | 'portfolio' | 'projects' | 'services' | 'reviews' | 'stats' | 'inventory';
 
 /**
  * The public profile page referenced (but never built) three tickets ago
@@ -47,7 +48,7 @@ type TabKey = 'about' | 'portfolio' | 'projects' | 'reviews' | 'stats' | 'invent
  * flags. Stats tab is a flagged simplification — see StatsTab.tsx.
  */
 export default function PublicProfileScreen() {
-  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { userId, tab: initialTab } = useLocalSearchParams<{ userId: string; tab?: string }>();
   const { colors, typeScale, spacing, radius } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function PublicProfileScreen() {
   const [profile, setProfile] = useState<ProfileDetail | null>(null);
   const [rating, setRating] = useState<{ averageRating: number; totalReviews: number } | null>(null);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<TabKey>('about');
+  const [tab, setTab] = useState<TabKey>((initialTab as TabKey) || 'about');
   const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
   const [coverViewerOpen, setCoverViewerOpen] = useState(false);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
@@ -112,6 +113,10 @@ export default function PublicProfileScreen() {
     { key: 'about', label: 'About' },
     ...(privacy?.showPortfolio !== false || isOwner ? [{ key: 'portfolio' as const, label: 'Portfolio' }] : []),
     ...(isProfessional && (privacy?.showProjects !== false || isOwner) ? [{ key: 'projects' as const, label: 'Projects' }] : []),
+    // Web's designer/tailor pages disagree on where this tab sits relative
+    // to Projects (after, for designer; before, for tailor) — one consistent
+    // order is used here rather than forking the tab bar per role.
+    ...(isProfessional ? [{ key: 'services' as const, label: 'Services' }] : []),
     ...(isProfessional && (privacy?.allowReviews !== false || isOwner) ? [{ key: 'reviews' as const, label: 'Reviews' }] : []),
     ...(privacy?.showStats !== false || isOwner ? [{ key: 'stats' as const, label: 'Stats' }] : []),
     ...(isProfessional ? [{ key: 'inventory' as const, label: 'Inventory' }] : []),
@@ -206,6 +211,11 @@ export default function PublicProfileScreen() {
                 <Text style={{ fontSize: 10.5, fontWeight: '400', color: colors.inkSoft }}>({rating.totalReviews})</Text>
               </View>
             ) : null}
+            {professionalDetail && 'yearsOfExperience' in professionalDetail && professionalDetail.yearsOfExperience ? (
+              <View style={{ backgroundColor: '#F3EDFB', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: '#6D28D9' }}>{professionalDetail.yearsOfExperience} yrs experience</Text>
+              </View>
+            ) : null}
           </View>
           {professionalDetail?.city || professionalDetail?.country ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 }}>
@@ -241,6 +251,7 @@ export default function PublicProfileScreen() {
           {tab === 'about' ? <AboutTab profile={profile} professionalDetail={professionalDetail} isOwner={isOwner} /> : null}
           {tab === 'portfolio' ? <PortfolioTab professionalDetail={professionalDetail} showPortfolio={privacy?.showPortfolio !== false || isOwner} /> : null}
           {tab === 'projects' ? <ProjectsTab userId={profile.id} role={profile.role as 'designer' | 'tailor'} showProjects={privacy?.showProjects !== false || isOwner} /> : null}
+          {tab === 'services' ? <ServicesTab professionalDetail={professionalDetail} /> : null}
           {tab === 'reviews' ? (
             <ReviewsTab
               profile={profile}
@@ -255,7 +266,16 @@ export default function PublicProfileScreen() {
               }}
             />
           ) : null}
-          {tab === 'stats' ? <StatsTab profile={profile} professionalDetail={professionalDetail} rating={rating} showStats={privacy?.showStats !== false || isOwner} /> : null}
+          {tab === 'stats' ? (
+            <StatsTab
+              profile={profile}
+              professionalDetail={professionalDetail}
+              rating={rating}
+              showStats={privacy?.showStats !== false || isOwner}
+              isOwner={isOwner}
+              isPro={profile.subscriptionTier === 'pro' || profile.subscriptionTier === 'business'}
+            />
+          ) : null}
           {tab === 'inventory' ? <InventoryTab userId={profile.id} /> : null}
         </View>
       </ScrollView>

@@ -6,7 +6,8 @@ export { login, signup, forgotPassword, validateResetToken, resetPassword } from
 export { setAuthTokenProvider, setUnauthorizedHandler } from './session';
 export { resolveMediaUrl } from './media';
 export { getFeed } from './feed';
-export { getPost, toggleLike, getComments, addComment, editComment, deleteComment, reactToComment, pinComment, reportComment, repostPost, toggleSavedPost, createPost } from './posts';
+export { getPost, toggleLike, getComments, addComment, editComment, deleteComment, reactToComment, pinComment, reportComment, repostPost, toggleSavedPost, createPost, getPostsByUser } from './posts';
+export { getCreatorAnalytics } from './analytics';
 export {
   getStories,
   getStory,

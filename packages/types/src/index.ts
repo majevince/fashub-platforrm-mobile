@@ -1,6 +1,7 @@
 export type { UserRole, User } from './user';
 export type { LoginPayload, SignupPayload, AuthResponse } from './auth';
-export type { PostComment, CommentReactionType, FeedPost, FeedResponse, FeedFilter, PostCategory, CreatePostPayload, PostDetail } from './post';
+export type { PostComment, CommentReactionType, FeedPost, FeedResponse, FeedFilter, PostCategory, CreatePostPayload, PostDetail, UserPost } from './post';
+export type { CreatorAnalyticsDaily, CreatorAnalyticsTopItem, CreatorAnalytics } from './creatorAnalytics';
 export type {
   Story,
   StoryGroup,
