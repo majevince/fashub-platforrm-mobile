@@ -17,6 +17,7 @@ import {
 } from '@fashub/api-client';
 import { PLAN_CONFIG, type PaymentMethodSummary, type InvoiceSummary, type SubscriptionTier } from '@fashub/types';
 import { SettingsScreenShell } from '../../../../components/settings/SettingsScreenShell';
+import { Banner } from '../../../../components/Banner';
 
 /**
  * Matches web's components/settings/BillingTab.tsx feature set exactly, split
@@ -53,6 +54,7 @@ export default function BillingSettingsScreen() {
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [addingCard, setAddingCard] = useState(false);
   const [changingTier, setChangingTier] = useState(false);
   const [busyPmId, setBusyPmId] = useState<string | null>(null);
@@ -76,6 +78,12 @@ export default function BillingSettingsScreen() {
 
   if (!user) return null;
 
+  /** Matches web's dedicated "Payment method saved" toast (components/settings/BillingTab.tsx) — a confirmation web shows for this flow specifically, unlike its generic settings save banner. */
+  const flashSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(''), 2500);
+  };
+
   const handleAddCard = async () => {
     setAddingCard(true);
     setError('');
@@ -89,6 +97,7 @@ export default function BillingSettingsScreen() {
         return;
       }
       load();
+      flashSuccess('Payment method saved');
     } catch (err) {
       setError(err instanceof ApiError || err instanceof Error ? err.message : "Couldn't add payment method.");
     } finally {
@@ -107,6 +116,7 @@ export default function BillingSettingsScreen() {
           try {
             await removePaymentMethod(user.id, pmId);
             load();
+            flashSuccess('Payment method removed');
           } catch (err) {
             setError(err instanceof ApiError ? err.message : "Couldn't remove card.");
           } finally {
@@ -122,6 +132,7 @@ export default function BillingSettingsScreen() {
     try {
       await setDefaultPaymentMethod(user.id, pmId);
       load();
+      flashSuccess('Default payment method updated');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't update default card.");
     } finally {
@@ -136,6 +147,7 @@ export default function BillingSettingsScreen() {
       if (next === 'free') await downgradeSubscription(user.id);
       else await upgradeSubscription(user.id, next);
       load();
+      flashSuccess('Plan updated');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't update your plan.");
     } finally {
@@ -145,6 +157,7 @@ export default function BillingSettingsScreen() {
 
   return (
     <SettingsScreenShell title="Billing" loading={loading} error={error}>
+      {successMessage ? <Banner tone="success">{successMessage}</Banner> : null}
       <View style={{ gap: spacing.sm }}>
         <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', textTransform: 'uppercase', color: colors.inkSoft }}>Plan</Text>
         {(Object.keys(PLAN_CONFIG) as SubscriptionTier[]).map((t) => {
@@ -186,7 +199,7 @@ export default function BillingSettingsScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', textTransform: 'uppercase', color: colors.inkSoft }}>Payment Methods</Text>
           <Pressable onPress={handleAddCard} disabled={addingCard}>
-            <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.oxblood }}>{addingCard ? 'Opening…' : '+ Add Card'}</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.gold }}>{addingCard ? 'Opening…' : '+ Add Card'}</Text>
           </Pressable>
         </View>
         {methods.length === 0 ? (
@@ -204,7 +217,7 @@ export default function BillingSettingsScreen() {
                 </Text>
               </View>
               {busyPmId === pm.id ? (
-                <ActivityIndicator size="small" color={colors.oxblood} />
+                <ActivityIndicator size="small" color={colors.gold} />
               ) : (
                 <>
                   {pm.isDefault ? (

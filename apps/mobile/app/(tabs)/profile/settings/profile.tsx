@@ -171,7 +171,7 @@ export default function ProfileSettingsScreen() {
         <Pressable
           onPress={() => avatarUri && setAvatarViewerOpen(true)}
           disabled={!avatarUri}
-          style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.oxblood, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.ivory }}
+          style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: colors.gold, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.ivory }}
         >
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />

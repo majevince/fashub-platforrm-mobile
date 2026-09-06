@@ -112,9 +112,11 @@ export function NetworkCard({
           <Pressable onPress={onToggleFollow} style={{ flex: 1, backgroundColor: isFollowing ? '#EFE9DE' : '#6D28D9', borderRadius: 15, paddingVertical: 6, alignItems: 'center' }}>
             <Text style={{ fontSize: 9.5, fontWeight: '600', color: isFollowing ? '#6B6459' : '#fff' }}>{isFollowing ? 'Following' : '+ Follow'}</Text>
           </Pressable>
-          <Pressable onPress={onMessage} style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: '#F3EDFB', alignItems: 'center', justifyContent: 'center' }}>
-            <MessageCircle size={12} color="#6D28D9" />
-          </Pressable>
+          {profile.allowMessages !== false ? (
+            <Pressable onPress={onMessage} style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: '#F3EDFB', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageCircle size={12} color="#6D28D9" />
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Pressable>

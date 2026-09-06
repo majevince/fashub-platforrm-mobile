@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, MapPin, Star, Heart, MessageCircle } from 'lucide-react-native';
+import { ChevronLeft, MapPin, Star, Heart, MessageCircle, MessageCircleOff } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile, getRatingStats, resolveMediaUrl, followUser, findOrCreateConversation, ApiError } from '@fashub/api-client';
@@ -104,6 +104,7 @@ export default function PublicProfileScreen() {
   const professionalDetail = profile.role === 'designer' ? profile.designerProfile : profile.role === 'tailor' ? profile.tailorProfile : null;
   const isProfessional = profile.role === 'designer' || profile.role === 'tailor';
   const privacy = profile.privacySettings;
+  const messagesAllowed = privacy?.allowMessages !== false;
   const roleColor = ROLE_COLORS[profile.role] ?? ROLE_COLOR_FALLBACK;
   const isFollowing = followingIds.has(profile.id);
   const isLiked = likedIds.has(profile.id);
@@ -229,9 +230,15 @@ export default function PublicProfileScreen() {
               <Pressable onPress={handleToggleFollow} style={{ flex: 1, backgroundColor: isFollowing ? colors.ivoryDeep : colors.gold, borderRadius: 999, paddingVertical: 11, alignItems: 'center' }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: isFollowing ? colors.ink : '#fff' }}>{isFollowing ? 'Following' : '+ Follow'}</Text>
               </Pressable>
-              <Pressable onPress={handleMessage} style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.ivoryDeep, alignItems: 'center', justifyContent: 'center' }}>
-                <MessageCircle size={18} color={colors.gold} />
-              </Pressable>
+              {messagesAllowed ? (
+                <Pressable onPress={handleMessage} style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.ivoryDeep, alignItems: 'center', justifyContent: 'center' }}>
+                  <MessageCircle size={18} color={colors.gold} />
+                </Pressable>
+              ) : (
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.ivoryDeep, alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                  <MessageCircleOff size={18} color={colors.inkSoft} />
+                </View>
+              )}
               <Pressable onPress={() => toggleLike(profile.id)} style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.ivoryDeep, alignItems: 'center', justifyContent: 'center' }}>
                 <Heart size={18} color={isLiked ? colors.oxblood : colors.inkSoft} fill={isLiked ? colors.oxblood : 'transparent'} />
               </Pressable>

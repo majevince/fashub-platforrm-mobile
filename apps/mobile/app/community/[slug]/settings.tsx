@@ -3,7 +3,8 @@ import { View, Text, Pressable, ScrollView, TextInput, Alert, ActivityIndicator 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChevronLeft, Search, X } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronLeft, Search, X, Check, Globe, Lock } from 'lucide-react-native';
 import { violetColors as VF } from '@fashub/design-tokens';
 import { useTheme } from '../../../theme/ThemeProvider';
 import { useAuth } from '../../../context/AuthContext';
@@ -29,12 +30,27 @@ const NAME_MAX = 80;
 const DESC_MAX = 500;
 const RULES_MAX = 2000;
 
+function timeAgo(date: Date): string {
+  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} MIN${mins === 1 ? '' : 'S'} AGO`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} HOUR${hours === 1 ? '' : 'S'} AGO`;
+  const days = Math.floor(hours / 24);
+  return `${days} DAY${days === 1 ? '' : 'S'} AGO`;
+}
+
 /**
- * Full parity port of app/communities/[slug]/settings/page.tsx's 4 tabs.
- * Client-side access gate matches web's own (redirect if role isn't
- * owner/admin/moderator) — the real enforcement lives server-side in each
- * PATCH/DELETE handler regardless (e.g. governance fields 403 for anyone
- * but owner even if this screen let an admin edit the form).
+ * Full parity port of app/communities/[slug]/settings/page.tsx's 4 tabs,
+ * restyled per community-settings-redesign.html: underline tabs (violet
+ * active-state only, matching the app's established convention), an
+ * inline removable tag box instead of a raw comma-separated field, a
+ * two-state visibility segment with a dynamic hint line, a type-the-name
+ * delete confirmation, and a sticky bottom save bar. Colors/fonts are
+ * pulled from the app's real theme tokens (useTheme()), not the mockup's
+ * own literal hex variables — its "violet" token IS this app's
+ * colors.gold (the shared active-state accent), matching the same
+ * mapping used for the Events/Communities palette-consistency fix.
  */
 export default function CommunitySettingsScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -109,13 +125,13 @@ function SettingsBody({
   error: string;
   setError: (e: string) => void;
 }) {
-  const { colors, radius } = useTheme();
+  const { colors, radius, fontFamilies } = useTheme();
   const router = useRouter();
 
   const [name, setName] = useState(community.name);
   const [description, setDescription] = useState(community.description ?? '');
   const [category, setCategory] = useState<string | null>(community.category);
-  const [tags, setTags] = useState(community.tags.join(', '));
+  const [tags, setTags] = useState<string[]>(community.tags);
   const [rules, setRules] = useState(community.rules ?? '');
   const [visibility, setVisibility] = useState<CommunityVisibility>(community.visibility);
   const [savingGeneral, setSavingGeneral] = useState(false);
@@ -124,6 +140,10 @@ function SettingsBody({
   const [postPermission, setPostPermission] = useState(community.postPermission);
   const [allowInvites, setAllowInvites] = useState(community.allowMemberInvites);
   const [savingGovernance, setSavingGovernance] = useState(false);
+
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const [members, setMembers] = useState<CommunityMember[] | null>(null);
   const [pending, setPending] = useState<CommunityMember[] | null>(null);
@@ -164,11 +184,11 @@ function SettingsBody({
         description: description.trim() || null,
         rules: rules.trim() || null,
         category: category ?? null,
-        tags: tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean),
+        tags: tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
         visibility,
       });
       setCommunity(updated);
-      Alert.alert('Saved', 'Community settings updated.');
+      setLastSavedAt(new Date());
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't save changes.");
     } finally {
@@ -182,30 +202,21 @@ function SettingsBody({
     try {
       const updated = await updateCommunity(slug, { userId, joinMode, postPermission, allowMemberInvites: allowInvites });
       setCommunity(updated);
-      Alert.alert('Saved', 'Governance settings updated.');
+      setLastSavedAt(new Date());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Only the owner can change governance settings.");
+      setError(err instanceof ApiError ? err.message : 'Only the owner can change governance settings.');
     } finally {
       setSavingGovernance(false);
     }
   };
 
-  const handleDelete = () => {
-    Alert.alert('Delete Community', 'This cannot be undone. Delete this community permanently?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteCommunity(slug, userId);
-            router.replace('/communities');
-          } catch (err) {
-            Alert.alert('Error', err instanceof ApiError ? err.message : "Couldn't delete this community.");
-          }
-        },
-      },
-    ]);
+  const handleDelete = async () => {
+    try {
+      await deleteCommunity(slug, userId);
+      router.replace('/communities');
+    } catch (err) {
+      Alert.alert('Error', err instanceof ApiError ? err.message : "Couldn't delete this community.");
+    }
   };
 
   const runUserSearch = async (q: string) => {
@@ -286,91 +297,132 @@ function SettingsBody({
     ]);
   };
 
+  const canConfirmDelete = deleteConfirmText.trim() === community.name;
+  const showSaveBar = tab === 'general' || (tab === 'governance' && isOwner);
+  const saving = tab === 'general' ? savingGeneral : savingGovernance;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }} edges={['top']}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 }}>
-        <Pressable onPress={() => router.back()} hitSlop={8}><ChevronLeft size={22} color={colors.ink} /></Pressable>
-        <Text style={{ fontSize: 19, fontWeight: '700', color: colors.ink, flexShrink: 1 }} numberOfLines={1}>{community.name} Settings</Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 6, paddingBottom: 10 }}>
-        {(['general', 'governance', 'members', 'requests'] as Tab[]).map((t) => (
-          <Pressable
-            key={t}
-            onPress={() => setTab(t)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-              paddingHorizontal: 6,
-              paddingVertical: 9,
-              borderRadius: 999,
-              backgroundColor: tab === t ? colors.gold : colors.paper,
-              borderWidth: 1,
-              borderColor: tab === t ? colors.gold : colors.line,
-            }}
-          >
-            <Text
-              style={{ fontSize: 11.5, fontWeight: '700', color: tab === t ? colors.ivory : colors.ink, textTransform: 'capitalize' }}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-            >
-              {t}
-            </Text>
-            {t === 'requests' && pending && pending.length > 0 ? (
-              <View style={{ backgroundColor: tab === t ? 'rgba(255,255,255,0.3)' : colors.gold, borderRadius: 999, paddingHorizontal: 5, minWidth: 15, alignItems: 'center' }}>
-                <Text style={{ fontSize: 9.5, fontWeight: '700', color: colors.ivory }}>{pending.length}</Text>
-              </View>
-            ) : null}
+      <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Pressable onPress={() => router.back()} hitSlop={8} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.ivoryDeep, alignItems: 'center', justifyContent: 'center' }}>
+            <ChevronLeft size={17} color={colors.ink} strokeWidth={2.2} />
           </Pressable>
-        ))}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontFamily: fontFamilies.serif, fontSize: 20, fontWeight: '500', color: colors.ink }} numberOfLines={1}>Community Settings</Text>
+            <Text style={{ fontSize: 13, color: colors.inkSoft, marginTop: 1 }} numberOfLines={1}>{community.name}</Text>
+          </View>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 22 }} style={{ marginTop: 22 }}>
+          {(['general', 'governance', 'members', 'requests'] as Tab[]).map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 12, borderBottomWidth: 2, borderBottomColor: tab === t ? colors.gold : 'transparent' }}
+            >
+              <Text style={{ fontSize: 14.5, fontWeight: '600', color: tab === t ? colors.ink : colors.inkSoft, textTransform: 'capitalize' }}>{t}</Text>
+              {t === 'requests' && pending && pending.length > 0 ? (
+                <View style={{ backgroundColor: colors.gold, borderRadius: 999, paddingHorizontal: 5, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 9.5, fontWeight: '700', color: colors.ivory }}>{pending.length}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          ))}
+        </ScrollView>
+        <View style={{ height: 1, backgroundColor: colors.line, marginTop: -1 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 24, gap: 26, paddingBottom: showSaveBar ? 130 : 40 }} keyboardShouldPersistTaps="handled">
         {error ? <Banner tone="error">{error}</Banner> : null}
 
         {tab === 'general' ? (
           <>
             <Field label="Name" value={name} onChangeText={(t) => setName(t.slice(0, NAME_MAX))} colors={colors} radius={radius} />
-            <Field label="Description" value={description} onChangeText={(t) => setDescription(t.slice(0, DESC_MAX))} multiline colors={colors} radius={radius} />
-            <View style={{ gap: 6 }}>
-              <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.ink }}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                <Pressable onPress={() => setCategory(null)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: category === null ? colors.gold : colors.paper, borderWidth: 1, borderColor: colors.line }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: category === null ? colors.ivory : colors.ink }}>None</Text>
+            <Field
+              label="Description"
+              value={description}
+              onChangeText={(t) => setDescription(t.slice(0, DESC_MAX))}
+              multiline
+              placeholder="Tell people what this community is about"
+              colors={colors}
+              radius={radius}
+            />
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Category</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <Pressable onPress={() => setCategory(null)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: category === null ? colors.gold : colors.paper, borderWidth: 1, borderColor: category === null ? colors.gold : colors.line }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: '500', color: category === null ? colors.ivory : colors.ink }}>None</Text>
                 </Pressable>
                 {COMMUNITY_CATEGORIES.map((c) => (
-                  <Pressable key={c} onPress={() => setCategory(c)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: category === c ? colors.gold : colors.paper, borderWidth: 1, borderColor: colors.line }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: category === c ? colors.ivory : colors.ink }}>{c}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-            <Field label="Tags" value={tags} onChangeText={setTags} colors={colors} radius={radius} />
-            <Field label="Rules" value={rules} onChangeText={(t) => setRules(t.slice(0, RULES_MAX))} multiline colors={colors} radius={radius} />
-            <View style={{ gap: 6 }}>
-              <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.ink }}>Visibility</Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {(['public', 'private'] as CommunityVisibility[]).map((v) => (
-                  <Pressable key={v} onPress={() => setVisibility(v)} style={{ flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.md, backgroundColor: visibility === v ? colors.gold : colors.paper, borderWidth: 1, borderColor: colors.line }}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: visibility === v ? colors.ivory : colors.ink, textTransform: 'capitalize' }}>{v}</Text>
+                  <Pressable key={c} onPress={() => setCategory(c)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: category === c ? colors.gold : colors.paper, borderWidth: 1, borderColor: category === c ? colors.gold : colors.line }}>
+                    <Text style={{ fontSize: 13.5, fontWeight: '500', color: category === c ? colors.ivory : colors.ink }}>{c}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
-            <Pressable onPress={saveGeneral} disabled={savingGeneral} style={{ backgroundColor: colors.gold, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-              {savingGeneral ? <ActivityIndicator size="small" color={colors.ivory} /> : <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.ivory }}>Save Changes</Text>}
-            </Pressable>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Tags</Text>
+              <TagBox tags={tags} onAdd={(t) => setTags((prev) => (prev.includes(t) ? prev : [...prev, t]))} onRemove={(t) => setTags((prev) => prev.filter((x) => x !== t))} />
+              <Text style={{ fontSize: 12, color: colors.inkSoft }}>Tags help this community surface in search and recommendations.</Text>
+            </View>
+
+            <Field
+              label="Rules"
+              value={rules}
+              onChangeText={(t) => setRules(t.slice(0, RULES_MAX))}
+              multiline
+              placeholder="Set expectations for members"
+              colors={colors}
+              radius={radius}
+            />
+
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Visibility</Text>
+              <VisibilitySegment value={visibility} onChange={setVisibility} />
+              <Text style={{ fontSize: 12, color: colors.inkSoft }}>
+                {visibility === 'private' ? 'Only members can see posts and the member list.' : 'Anyone can find and join this community.'}
+              </Text>
+            </View>
 
             {isOwner ? (
-              <View style={{ marginTop: 20, borderWidth: 1, borderColor: colors.oxblood, borderRadius: radius.lg, padding: 14, gap: 8 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.oxblood }}>Danger Zone</Text>
-                <Pressable onPress={handleDelete} style={{ backgroundColor: colors.oxblood, borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>Delete Community</Text>
-                </Pressable>
+              <View style={{ marginTop: 12, borderWidth: 1, borderColor: colors.oxblood + '59', backgroundColor: colors.oxblood + '0A', borderRadius: radius.lg, padding: 16, gap: 4 }}>
+                <Text style={{ fontFamily: fontFamilies.serif, fontSize: 16, fontWeight: '500', color: colors.oxblood }}>Danger Zone</Text>
+                <Text style={{ fontSize: 12.5, color: colors.inkSoft, lineHeight: 18, marginBottom: 10 }}>
+                  Deleting this community removes it and its posts for every member. This can't be undone.
+                </Text>
+                {!deleteConfirmOpen ? (
+                  <Pressable onPress={() => setDeleteConfirmOpen(true)} style={{ backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.oxblood, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13.5, fontWeight: '600', color: colors.oxblood }}>Delete community</Text>
+                  </Pressable>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    <Text style={{ fontSize: 11.5, color: colors.inkSoft }}>Type the community name to confirm</Text>
+                    <TextInput
+                      value={deleteConfirmText}
+                      onChangeText={setDeleteConfirmText}
+                      placeholder={community.name}
+                      placeholderTextColor={VF.inkFaint}
+                      style={{ borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, fontFamily: fontFamilies.mono, fontSize: 12.5, color: colors.ink, backgroundColor: colors.paper }}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Pressable
+                        onPress={() => { setDeleteConfirmOpen(false); setDeleteConfirmText(''); }}
+                        style={{ flex: 1, backgroundColor: colors.ivoryDeep, borderRadius: radius.sm, paddingVertical: 11, alignItems: 'center' }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleDelete}
+                        disabled={!canConfirmDelete}
+                        style={{ flex: 1, backgroundColor: colors.oxblood, opacity: canConfirmDelete ? 1 : 0.45, borderRadius: radius.sm, paddingVertical: 11, alignItems: 'center' }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }}>Delete forever</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             ) : null}
           </>
@@ -422,16 +474,10 @@ function SettingsBody({
                 <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: colors.paper, alignSelf: allowInvites ? 'flex-end' : 'flex-start' }} />
               </View>
             </Pressable>
-            {isOwner ? (
-              <Pressable onPress={saveGovernance} disabled={savingGovernance} style={{ backgroundColor: colors.gold, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                {savingGovernance ? <ActivityIndicator size="small" color={colors.ivory} /> : <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.ivory }}>Save Changes</Text>}
-              </Pressable>
-            ) : (
-              <Text style={{ fontSize: 11.5, fontWeight: '500', color: colors.inkSoft }}>Only the owner can change governance settings.</Text>
-            )}
+            {!isOwner ? <Text style={{ fontSize: 11.5, fontWeight: '500', color: colors.inkSoft }}>Only the owner can change governance settings.</Text> : null}
 
             {isOwner ? (
-              <View style={{ marginTop: 20, gap: 10 }}>
+              <View style={{ marginTop: 12, gap: 10 }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>Transfer Ownership</Text>
                 {(members ?? []).filter((m) => m.userId !== userId).map((m) => (
                   <Pressable key={m.id} onPress={() => handleTransferOwnership(m.userId, m.user?.displayName ?? 'this member')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 12 }}>
@@ -517,21 +563,144 @@ function SettingsBody({
           </View>
         )}
       </ScrollView>
+
+      {showSaveBar ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
+          <LinearGradient colors={[colors.ivory + '00', colors.ivory, colors.ivory]} locations={[0, 0.45, 1]} style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 18 }}>
+            <Pressable
+              onPress={tab === 'general' ? saveGeneral : saveGovernance}
+              disabled={saving || (tab === 'general' && !name.trim())}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.ink, borderRadius: radius.lg, paddingVertical: 15, opacity: saving ? 0.7 : 1 }}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={colors.gold} />
+              ) : (
+                <>
+                  <Check size={15} color={colors.gold} strokeWidth={2.4} />
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.gold, letterSpacing: 0.2 }}>Save changes</Text>
+                </>
+              )}
+            </Pressable>
+            {lastSavedAt ? (
+              <Text style={{ textAlign: 'center', fontFamily: fontFamilies.mono, fontSize: 10, color: colors.inkSoft, marginTop: 8 }}>
+                LAST SAVED {timeAgo(lastSavedAt)}
+              </Text>
+            ) : null}
+          </LinearGradient>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
-function Field({ label, value, onChangeText, multiline, colors, radius }: { label: string; value: string; onChangeText: (t: string) => void; multiline?: boolean; colors: any; radius: any }) {
+function Field({
+  label,
+  value,
+  onChangeText,
+  multiline,
+  placeholder,
+  colors,
+  radius,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
+  multiline?: boolean;
+  placeholder?: string;
+  colors: any;
+  radius: any;
+}) {
   return (
-    <View style={{ gap: 6 }}>
-      <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.ink }}>{label}</Text>
+    <View style={{ gap: 8 }}>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.ink }}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         multiline={multiline}
         numberOfLines={multiline ? 3 : undefined}
-        style={{ borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: multiline ? 12 : 11, fontSize: 13.5, color: colors.ink, backgroundColor: colors.paper, minHeight: multiline ? 80 : undefined, textAlignVertical: multiline ? 'top' : undefined }}
+        placeholder={placeholder}
+        placeholderTextColor={VF.inkFaint}
+        style={{
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.md,
+          paddingHorizontal: 14,
+          paddingVertical: multiline ? 12 : 12,
+          fontSize: 14.5,
+          color: colors.ink,
+          backgroundColor: colors.paper,
+          minHeight: multiline ? 88 : undefined,
+          textAlignVertical: multiline ? 'top' : undefined,
+          lineHeight: multiline ? 20 : undefined,
+        }}
       />
+    </View>
+  );
+}
+
+/** Removable tag chips + an inline "press enter to add" input, matching the redesign's tag box exactly. */
+function TagBox({ tags, onAdd, onRemove }: { tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void }) {
+  const { colors, radius, fontFamilies } = useTheme();
+  const [input, setInput] = useState('');
+
+  const commit = () => {
+    const v = input.trim().toLowerCase();
+    if (v) onAdd(v);
+    setInput('');
+  };
+
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, minHeight: 46 }}>
+      {tags.map((tag) => (
+        <View key={tag} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.ivoryDeep, borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 8 }}>
+          <Text style={{ fontFamily: fontFamilies.mono, fontSize: 12, color: colors.ink }}>{tag}</Text>
+          <Pressable onPress={() => onRemove(tag)} hitSlop={6}>
+            <X size={11} color={colors.inkSoft} />
+          </Pressable>
+        </View>
+      ))}
+      <TextInput
+        value={input}
+        onChangeText={setInput}
+        onSubmitEditing={commit}
+        onBlur={commit}
+        placeholder={tags.length === 0 ? 'Add a tag, press enter' : ''}
+        placeholderTextColor={VF.inkFaint}
+        returnKeyType="done"
+        style={{ flexGrow: 1, minWidth: 80, fontSize: 13.5, color: colors.ink }}
+      />
+    </View>
+  );
+}
+
+/** Two-state segmented control matching the redesign's Public/Private toggle, with icons carried over from the app's own visibility badges. */
+function VisibilitySegment({ value, onChange }: { value: CommunityVisibility; onChange: (v: CommunityVisibility) => void }) {
+  const { colors, radius } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', backgroundColor: colors.ivoryDeep, borderRadius: radius.lg, padding: 4 }}>
+      {(['public', 'private'] as CommunityVisibility[]).map((v) => {
+        const active = value === v;
+        const Icon = v === 'public' ? Globe : Lock;
+        return (
+          <Pressable
+            key={v}
+            onPress={() => onChange(v)}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              paddingVertical: 11,
+              borderRadius: radius.md,
+              backgroundColor: active ? colors.gold : 'transparent',
+            }}
+          >
+            <Icon size={14} color={active ? colors.ivory : colors.inkSoft} />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: active ? colors.ivory : colors.inkSoft, textTransform: 'capitalize' }}>{v}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

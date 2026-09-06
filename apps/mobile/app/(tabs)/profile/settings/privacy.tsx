@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { useTheme } from '../../../../theme/ThemeProvider';
 import { useAuth } from '../../../../context/AuthContext';
 import { getUserProfile, updateUserProfile, ApiError } from '@fashub/api-client';
@@ -37,9 +38,11 @@ export default function PrivacySettingsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState('');
   const [settings, setSettings] = useState<ProfilePrivacySettings>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pro = user?.role === 'designer' || user?.role === 'tailor';
   const visibilityOptions = pro ? VISIBILITY_OPTIONS_PRO : VISIBILITY_OPTIONS_INDIVIDUAL;
@@ -59,15 +62,25 @@ export default function PrivacySettingsScreen() {
   const commit = (next: ProfilePrivacySettings) => {
     setSettings(next);
     setSaving(true);
+    setJustSaved(false);
     setError('');
     // Debounced slightly so rapid taps (e.g. toggling several rows quickly)
     // collapse into one request with the final state, rather than firing a
     // PATCH per keystroke-equivalent — web's own handler has no such
     // debounce, but this is a strict improvement, not a behavior change.
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
         await updateUserProfile(user.id, { role: user.role, profileData: { privacySettings: next } });
+        // Web itself shows no confirmation at all after this save (verified
+        // directly against app/settings/{individual,designer,tailor}/page.tsx
+        // — only a transient "Saving…" spinner, nothing on completion) — a
+        // real gap in web's own UX, not something to faithfully replicate.
+        // A brief "Saved" beats silence, and keeps this screen consistent
+        // with every other Settings screen's now-fixed success feedback.
+        setJustSaved(true);
+        savedTimer.current = setTimeout(() => setJustSaved(false), 2000);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Couldn't save privacy settings.");
       } finally {
@@ -82,8 +95,13 @@ export default function PrivacySettingsScreen() {
     <SettingsScreenShell title="Privacy" loading={loading} error={error}>
       {saving ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -spacing.sm }}>
-          <ActivityIndicator size="small" color={colors.oxblood} />
+          <ActivityIndicator size="small" color={colors.gold} />
           <Text style={{ fontSize: 11.5, fontWeight: '500', color: colors.inkSoft }}>Saving…</Text>
+        </View>
+      ) : justSaved ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -spacing.sm }}>
+          <Check size={13} color="#059669" />
+          <Text style={{ fontSize: 11.5, fontWeight: '500', color: '#059669' }}>Saved</Text>
         </View>
       ) : null}
 
