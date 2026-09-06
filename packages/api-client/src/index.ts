@@ -9,6 +9,26 @@ export { getFeed } from './feed';
 export { getPost, toggleLike, getComments, addComment, editComment, deleteComment, reactToComment, pinComment, reportComment, repostPost, toggleSavedPost, createPost, getPostsByUser } from './posts';
 export { getCreatorAnalytics } from './analytics';
 export {
+  getCommunities,
+  getCommunity,
+  createCommunity,
+  updateCommunity,
+  deleteCommunity,
+  getCommunityMembers,
+  joinCommunity,
+  leaveCommunity,
+  updateCommunityMember,
+  getCommunityPosts,
+  createCommunityPost,
+  toggleCommunityPostLike,
+  voteCommunityPoll,
+  addCommunityComment,
+  deleteCommunityComment,
+  toggleCommunityPostPin,
+  getCommunityDashboardStats,
+  getCommunityTrendingTags,
+} from './communities';
+export {
   getStories,
   getStory,
   createStory,
@@ -54,14 +74,16 @@ export {
 } from './billing';
 export { getGlobalFabrics, getMyFabrics, getFabric, createFabric, updateFabric, deleteFabric } from './fabricInventory';
 export { getWorkflows, getWorkflow, advanceWorkflowStage, approveWorkflowDelivery, requestWorkflowRevision, cancelWorkflow } from './workflows';
-export { getSavedItems, toggleSavedItem } from './savedItems';
+export { getSavedItems, toggleSavedItem, getSavedItemsStatus } from './savedItems';
+export { getEvents, getEvent, attendEvent, unattendEvent, getRecommendedEvents, getRelatedEvents } from './events';
 export { discoverProjects } from './discoverProjects';
 export { getNetworkProfiles } from './network';
 export { getPortfolioProjects, getPortfolioProject, trackProjectView } from './portfolioProjects';
 export { getReviews, createReview } from './reviews';
 export { getSuggestedCreators } from './recommendations';
 export { getTrending } from './trending';
-export { followUser } from './users';
+export { followUser, searchUsers } from './users';
+export type { UserSearchResult } from './users';
 export { uploadFiles } from './upload';
 export type { UploadableFile } from './upload';
 export { matchProfessionals } from './matching';

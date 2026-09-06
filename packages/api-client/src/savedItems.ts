@@ -14,3 +14,9 @@ export function getSavedItems(userId: string, type?: SaveContentType, opts: { pa
 export function toggleSavedItem(userId: string, contentId: string, contentType: SaveContentType): Promise<{ saved: boolean }> {
   return apiPost('/api/saved-items', { userId, contentId, contentType });
 }
+
+/** Matches GET /api/saved-items/status exactly — batch save-state check (web caps at 100 ids per call, same limit applies here). */
+export function getSavedItemsStatus(userId: string, contentType: SaveContentType, ids: string[]): Promise<{ saved: Record<string, boolean> }> {
+  const params = new URLSearchParams({ userId, contentType, ids: ids.join(',') });
+  return apiGet(`/api/saved-items/status?${params.toString()}`);
+}

@@ -3,6 +3,44 @@ export type { LoginPayload, SignupPayload, AuthResponse } from './auth';
 export type { PostComment, CommentReactionType, FeedPost, FeedResponse, FeedFilter, PostCategory, CreatePostPayload, PostDetail, UserPost } from './post';
 export type { CreatorAnalyticsDaily, CreatorAnalyticsTopItem, CreatorAnalytics } from './creatorAnalytics';
 export type {
+  EventCategory,
+  EventStatus,
+  EventAgendaItem,
+  EventOrganizerSummary,
+  EventListItem,
+  EventDetail,
+  EventsListResponse,
+  RecommendedEvent,
+  RecommendedEventsResponse,
+  RelatedEventsResponse,
+  EventSort,
+} from './event';
+export { EVENT_CATEGORY_LABELS, EVENT_CATEGORIES } from './event';
+export type {
+  CommunityVisibility,
+  CommunityMemberRoleType,
+  CommunityJoinStatusType,
+  CommunityPostType,
+  CommunityPostSort,
+  CommunityDiscoveryTab,
+  CommunityScope,
+  CommunityUser,
+  CommunityMember,
+  Community,
+  CommunityComment,
+  CommunityPost,
+  CommunitiesListResponse,
+  CommunityMembersResponse,
+  CommunityPostsResponse,
+  CommunityDashboardStats,
+  CommunityTrendingTagsResponse,
+  CommunityMemberAction,
+  CreateCommunityPayload,
+  UpdateCommunityPayload,
+  CreateCommunityPostPayload,
+} from './community';
+export { COMMUNITY_CATEGORIES } from './community';
+export type {
   Story,
   StoryGroup,
   CreateStoryPayload,
