@@ -7,7 +7,7 @@ export { setAuthTokenProvider, setUnauthorizedHandler } from './session';
 export { resolveMediaUrl } from './media';
 export { getFeed } from './feed';
 export { getPost, toggleLike, getComments, addComment, editComment, deleteComment, reactToComment, pinComment, reportComment, repostPost, toggleSavedPost, createPost, getPostsByUser } from './posts';
-export { getCreatorAnalytics } from './analytics';
+export { getCreatorAnalytics, getProjectAnalyticsSummary } from './analytics';
 export {
   getCommunities,
   getCommunity,
@@ -60,7 +60,7 @@ export {
   forwardMessage,
 } from './messages';
 export type { SendMessagePayload, CreateInquiryPayload } from './messages';
-export { getUserProfile, updateUserProfile, getRatingStats, getNotifications, markNotificationRead } from './profileAccount';
+export { getUserProfile, updateUserProfile, getRatingStats, getNotifications, markNotificationRead, trackProfileView, getProfileViewAnalytics } from './profileAccount';
 export { getNotificationPreferences, updateNotificationPreferences } from './notificationPreferences';
 export {
   createBillingSetupIntent,
@@ -87,3 +87,4 @@ export type { UserSearchResult } from './users';
 export { uploadFiles } from './upload';
 export type { UploadableFile } from './upload';
 export { matchProfessionals } from './matching';
+export { sendInvites } from './invite';

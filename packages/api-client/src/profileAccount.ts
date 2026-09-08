@@ -1,9 +1,19 @@
-import { apiGet, apiPatch } from './http';
-import type { ProfileDetail, UpdateProfilePayload, RatingStatsSummary, AppNotification } from '@fashub/types';
+import { apiGet, apiPatch, apiPost } from './http';
+import type { ProfileDetail, UpdateProfilePayload, RatingStatsSummary, AppNotification, ProfileViewAnalytics } from '@fashub/types';
 
 /** Matches GET /api/users/[userId]?viewerId= exactly. Pass viewerId === userId for the caller's own profile to get the unrestricted shape. */
 export function getUserProfile(userId: string, viewerId?: string): Promise<ProfileDetail> {
   return apiGet(`/api/users/${userId}${viewerId ? `?viewerId=${viewerId}` : ''}`);
+}
+
+/** Matches POST /api/users/[userId]/view exactly — fired once on profile-detail screen open. Sends platform: 'mobile' so the analytics platform-split breakdown can tell mobile views from web ones. Self-views and repeat views within 24h are server-side no-ops, so this never needs to branch on the result. */
+export function trackProfileView(userId: string): Promise<{ success: boolean; recorded: boolean }> {
+  return apiPost<{ success: boolean; recorded: boolean }>(`/api/users/${userId}/view`, { platform: 'mobile' });
+}
+
+/** Matches GET /api/users/[userId]/profile-views/analytics exactly — Creator Pro only, gated server-side (a 403 means not-Pro or not-your-own-profile, not a client-side hide). */
+export function getProfileViewAnalytics(userId: string): Promise<ProfileViewAnalytics> {
+  return apiGet<ProfileViewAnalytics>(`/api/users/${userId}/profile-views/analytics`);
 }
 
 /** Matches PATCH /api/users/[userId] exactly. */

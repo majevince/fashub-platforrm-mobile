@@ -5,15 +5,17 @@ import { Sparkles, ChevronRight, Lock } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 
 /**
- * Matches web's Pro banner on the Designer/Tailor dashboard exactly — it
- * has no numeric summary/preview on the card itself (confirmed by reading
- * the source), just marketing copy plus a `View Insights →` link into
- * `/profile/{userId}?tab=stats`. Non-Pro users see an upgrade prompt
- * instead; web's version links to `/pro/upgrade` (a full subscription
- * flow), which doesn't exist on mobile and is out of this ticket's scope —
- * shown here as informational only, not a dead link.
+ * `View Insights →` now opens the dedicated Insights screen (app/insights.tsx,
+ * Overview/Visitors/Projects/Portfolio tabs) rather than the profile's Stats
+ * tab it linked to before — that page has no web equivalent to port (Step 0
+ * of the "Insights Page" ticket confirmed no /insights route exists on web;
+ * this is mobile-first, aggregating web's existing Pro-gated analytics
+ * endpoints into one tabbed page). The `isPro` prop here only controls
+ * whether this CARD shows its locked-banner or active state — it does not
+ * gate the destination screen, which independently re-checks the live tier
+ * on every visit (a stale prop here must never be trusted as the real gate).
  */
-export function InsightsCard({ userId, isPro }: { userId: string; isPro: boolean }) {
+export function InsightsCard({ isPro }: { isPro: boolean }) {
   const { colors, radius } = useTheme();
   const router = useRouter();
 
@@ -33,7 +35,7 @@ export function InsightsCard({ userId, isPro }: { userId: string; isPro: boolean
 
   return (
     <Pressable
-      onPress={() => router.push(`/profile/${userId}?tab=stats`)}
+      onPress={() => router.push('/insights')}
       style={{ backgroundColor: colors.ink, borderRadius: radius.lg, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
     >
       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>

@@ -129,3 +129,6 @@ export {
   BADGE_DISPLAY,
   BADGE_PRIORITY,
 } from './matching';
+export type { InviteResult } from './invite';
+export type { ProfileViewAnalytics } from './profileViewAnalytics';
+export type { ProjectAnalyticsSummary } from './projectAnalyticsSummary';

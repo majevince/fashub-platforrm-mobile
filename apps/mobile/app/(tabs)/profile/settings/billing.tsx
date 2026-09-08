@@ -171,8 +171,11 @@ export default function BillingSettingsScreen() {
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: 15, fontWeight: '700', color: colors.ink }}>{plan.label}</Text>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>{plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)}/mo`}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>Free</Text>
               </View>
+              {t !== 'free' ? (
+                <Text style={{ fontSize: 10.5, fontWeight: '600', color: colors.gold, textTransform: 'uppercase', letterSpacing: 0.3 }}>Free during beta — no card required</Text>
+              ) : null}
               {plan.features.map((f) => (
                 <Text key={f} style={{ fontSize: 11.5, fontWeight: '400', color: colors.inkSoft }}>· {f}</Text>
               ))}
@@ -182,7 +185,7 @@ export default function BillingSettingsScreen() {
                   disabled={changingTier}
                   style={{ marginTop: 4, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.gold, alignItems: 'center' }}
                 >
-                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.ivory }}>{changingTier ? 'Updating…' : t === 'free' ? 'Downgrade to Free' : `Switch to ${plan.label}`}</Text>
+                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.ivory }}>{changingTier ? 'Updating…' : t === 'free' ? 'Downgrade to Free' : `Activate ${plan.label}`}</Text>
                 </Pressable>
               ) : active ? (
                 <Text style={{ fontSize: 11, fontWeight: '600', color: colors.gold }}>Current plan</Text>

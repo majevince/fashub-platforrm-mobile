@@ -28,8 +28,17 @@ export interface InvoiceSummary {
   pdfUrl: string | null;
 }
 
+/**
+ * Prices are 0 for every tier — confirmed directly against web's real,
+ * current /pro/upgrade page copy: "During the beta period, both Creator
+ * Pro and Fashion Studio Pro are completely free with instant activation.
+ * No credit card, no trial period." An earlier pass here priced Pro/
+ * Business at $9.99/$29.99 despite this same comment already noting the
+ * beta-is-free behavior — a stale/contradicted value, not a real price,
+ * fixed rather than carried forward into new UI that reads this config.
+ */
 export const PLAN_CONFIG: Record<SubscriptionTier, { label: string; price: number; features: string[] }> = {
   free: { label: 'Free', price: 0, features: ['Basic profile', 'Up to 5 active projects', 'Standard support'] },
-  pro: { label: 'Creator Pro', price: 9.99, features: ['Unlimited projects', 'Search boost', 'Pro badge', 'Priority support'] },
-  business: { label: 'Business', price: 29.99, features: ['Everything in Pro', 'Business profile tools', 'Team features', 'Dedicated support'] },
+  pro: { label: 'Creator Pro', price: 0, features: ['Unlimited projects', 'Search boost', 'Pro badge', 'Priority support'] },
+  business: { label: 'Business', price: 0, features: ['Everything in Pro', 'Business profile tools', 'Team features', 'Dedicated support'] },
 };

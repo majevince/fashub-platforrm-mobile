@@ -98,6 +98,11 @@ export interface ProfessionalProfileDetail extends LocationFields, SocialMediaFi
   /** String[] of user IDs — real columns on the role-specific profile table, confirmed via prisma/schema.prisma (not on the base User model). */
   followers?: string[];
   following?: string[];
+  /** Designer/Tailor only — real tracked counters (Prisma's own "Creator Pro
+   * Fields"/"Stats" columns), not new counters invented for the mobile menu's
+   * stats strip. Individual profiles have neither column. */
+  profileViews?: number;
+  followerCount?: number;
 }
 
 export interface RatingStatsSummary {
@@ -152,6 +157,16 @@ export interface ProfileDetail {
   ratingStats?: RatingStatsSummary | null;
   isVerified?: boolean;
   privacySettings?: ProfilePrivacySettings;
+  /** Portfolio project count — Designer/Tailor only (0 for Individual, which
+   * has no PortfolioProject relation). Top-level since which nested
+   * *Profile object exists varies by role. */
+  projectCount?: number;
+  /** Real, deduplicated profile-view count — a Creator Pro analytics
+   * feature. Server-gated (app/api/users/[userId]): only ever non-null
+   * when this response is for the caller's OWN profile AND that account
+   * is pro/business — null means "not visible to you", never "zero
+   * views" (which is a real possible value too). */
+  profileViewCount?: number | null;
 }
 
 export type UpdateProfilePayload = {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Image } from 'expo-image';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Home, Briefcase, MessageCircle, Users, UserSearch, User } from 'lucide-react-native';
 import { colors } from '@fashub/design-tokens';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -158,6 +158,8 @@ function useTabBadges() {
 }
 
 export default function TabsLayout() {
+  const { user } = useAuth();
+  const router = useRouter();
   const { hasUnreadMessages, hasUnreadProjectActivity } = useTabBadges();
   const dotFor: Partial<Record<keyof typeof TAB_META, boolean>> = {
     messages: hasUnreadMessages,
@@ -181,6 +183,20 @@ export default function TabsLayout() {
             // No visible label anymore — keep the full name available to screen readers.
             tabBarAccessibilityLabel: TAB_META[name].label,
           }}
+          // Profile tab skips its own route entirely and jumps straight to
+          // the profile page — no more "My Profile" menu in between (that
+          // menu's other item, Sign out, moved to the drawer footer).
+          listeners={
+            name === 'profile'
+              ? {
+                  tabPress: (e) => {
+                    if (!user) return;
+                    e.preventDefault();
+                    router.push(`/profile/${user.id}`);
+                  },
+                }
+              : undefined
+          }
         />
       ))}
       <Tabs.Screen name="communities" options={{ href: null }} />

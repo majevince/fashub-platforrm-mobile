@@ -127,7 +127,7 @@ export default function DashboardScreen() {
           </View>
 
           {pro ? (
-            <InsightsCard userId={user.id} isPro={detail?.subscriptionTier === 'pro' || detail?.subscriptionTier === 'business'} />
+            <InsightsCard isPro={detail?.subscriptionTier === 'pro' || detail?.subscriptionTier === 'business'} />
           ) : null}
 
           {pro ? <RecentPostsCard posts={recentPosts} /> : null}

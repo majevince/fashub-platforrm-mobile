@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, MapPin, Star, Heart, MessageCircle, MessageCircleOff } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
-import { getUserProfile, getRatingStats, resolveMediaUrl, followUser, findOrCreateConversation, ApiError } from '@fashub/api-client';
+import { getUserProfile, getRatingStats, resolveMediaUrl, followUser, findOrCreateConversation, trackProfileView, ApiError } from '@fashub/api-client';
 import type { ProfileDetail } from '@fashub/types';
 import { ROLE_COLORS, ROLE_COLOR_FALLBACK } from '@fashub/types';
 import { useFollowingIds } from '../../hooks/useFollowingIds';
@@ -76,6 +76,15 @@ export default function PublicProfileScreen() {
   };
 
   useEffect(load, [userId, user]);
+
+  // Real profile-view tracking (see packages/api-client's trackProfileView)
+  // — fire and forget, never blocks rendering. Skipped client-side for
+  // self-views (server also excludes them; this just skips the pointless
+  // request) and repeat views within 24h are server-side no-ops.
+  useEffect(() => {
+    if (!userId || !user || userId === user.id) return;
+    trackProfileView(userId).catch(() => {});
+  }, [userId, user?.id]);
 
   if (!user || !userId) return null;
 
