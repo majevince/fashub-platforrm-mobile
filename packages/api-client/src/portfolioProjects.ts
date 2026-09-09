@@ -23,3 +23,18 @@ export function getPortfolioProject(projectId: string): Promise<{ project: Portf
 export function trackProjectView(projectId: string): Promise<{ success: boolean }> {
   return apiPost(`/api/portfolio/projects/${projectId}/view`, {});
 }
+
+/**
+ * Matches POST /api/portfolio/projects/[projectId]/share exactly — web's
+ * "Send to User" flow (components/portfolio/ProjectShareModal.tsx). Creates
+ * (or reuses) a direct conversation per recipient and posts a real message
+ * with attachmentType: 'project', which the shared inbox already knows how
+ * to render (components/messages/MessageCards.tsx's ProjectMessageCard) —
+ * this is the send-side call only, no new rendering needed.
+ */
+export function shareProject(
+  projectId: string,
+  payload: { senderId: string; recipientIds: string[]; note?: string }
+): Promise<{ success: boolean; sharedCount: number; failedCount: number }> {
+  return apiPost(`/api/portfolio/projects/${projectId}/share`, payload);
+}

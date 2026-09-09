@@ -33,6 +33,19 @@ export interface DiscoverProject {
 export type DiscoverSection = 'featured' | 'trending' | 'editors' | 'rising' | 'all';
 export type DiscoverSort = 'popular' | 'recent' | 'featured';
 
+/** Matches GET /api/recommendations/projects exactly — same shape as DiscoverProject plus the recommendation-specific fields. */
+export interface RecommendedProject extends DiscoverProject {
+  /** Human-readable context label, e.g. "Because you liked Bridal Design". */
+  reason: string;
+  /** Final blended ranking score (0–1) — absent on the anonymous fallback path. */
+  score?: number;
+}
+
+export interface RecommendedProjectsResponse {
+  recommendations: RecommendedProject[];
+  total: number;
+}
+
 export const PROJECT_CATEGORIES = [
   'Fashion Design', 'Tailoring', 'Bridal', 'Custom Suits', 'Streetwear',
   'Formal Wear', 'Editorial', 'Traditional', 'Alterations', 'Casual',

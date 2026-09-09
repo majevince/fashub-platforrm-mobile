@@ -27,4 +27,14 @@ export interface ProjectAnalyticsSummary {
   }[];
   totalProjects: number;
   insights: string[];
+  /** Aggregate-only comparison (same role + category + your city) — null
+   * whenever fewer than 3 distinct other professionals match, so an
+   * "average" can never approximate one specific competitor's real number. */
+  categoryBenchmark: {
+    category: string;
+    city: string;
+    yourViews: number;
+    categoryAverageViews: number;
+    sampleSize: number;
+  } | null;
 }

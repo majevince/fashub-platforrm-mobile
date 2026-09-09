@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { X, MessageCircle, FileText, CalendarClock, CheckCircle2 } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
-import { createInquiry, resolveMediaUrl, type CreateInquiryPayload } from '@fashub/api-client';
+import { createInquiry, trackProjectEngagement, resolveMediaUrl, type CreateInquiryPayload } from '@fashub/api-client';
 
 export type InquiryType = 'message' | 'quote' | 'consultation';
 
@@ -131,6 +131,9 @@ export function InquiryComposer({
       };
       const res = await createInquiry(payload);
       setSuccess({ conversationId: res.conversationId });
+      if (project?.id) {
+        trackProjectEngagement(project.id, 'project_inquiry_sent', currentUserId, { inquiryType: type });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {

@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import { Search, Eye, Star } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
-import { discoverProjects, getNotifications, markNotificationRead, resolveMediaUrl } from '@fashub/api-client';
+import { discoverProjects, getRecommendedProjects, getNotifications, markNotificationRead, resolveMediaUrl } from '@fashub/api-client';
 import { PROJECT_CATEGORIES, type DiscoverProject, type DiscoverSort } from '@fashub/types';
 import { LoadingState } from '../../components/LoadingState';
 import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
@@ -27,6 +27,10 @@ const SORTS: { key: DiscoverSort; label: string }[] = [
  * shows above the main grid are simplified into the single sort control
  * here, since the section split is a curation nuance more than a distinct
  * capability — flagging that as a deliberate simplification.
+ *
+ * No save/share quick-actions on these grid cards, unlike web's
+ * DiscoveryCard — tapping a card only opens app/project/[id].tsx, which is
+ * the sole place those two actions live, per Vincent's explicit call.
  */
 export default function ProjectDiscoveryScreen() {
   const { colors, typeScale, spacing, radius } = useTheme();
@@ -41,6 +45,33 @@ export default function ProjectDiscoveryScreen() {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // "For You" (the retuned recommendation pipeline) is the default; Sort is
+  // the pre-existing flat discover view above, kept reachable as an explicit
+  // alternative rather than removed. The recommendations endpoint has no
+  // search/category params, so an active filter forces Sort mode instead —
+  // same rule as web's app/projects/page.tsx toggle.
+  const hasActiveFilters = Boolean(query.trim() || category);
+  const [browseMode, setBrowseMode] = useState<'for-you' | 'sort'>('for-you');
+  const [forYouProjects, setForYouProjects] = useState<DiscoverProject[] | null>(null);
+  const [forYouError, setForYouError] = useState('');
+
+  const loadForYou = useCallback(() => {
+    setForYouError('');
+    getRecommendedProjects({ userId: user?.id, limit: PAGE_SIZE })
+      .then((res) => setForYouProjects(res.recommendations))
+      .catch(() => setForYouError("Couldn't load recommendations. Check your connection and try again."));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (browseMode !== 'for-you') return;
+    setForYouProjects(null);
+    loadForYou();
+  }, [browseMode, loadForYou]);
+
+  useEffect(() => {
+    if (hasActiveFilters && browseMode === 'for-you') setBrowseMode('sort');
+  }, [hasActiveFilters, browseMode]);
 
   const load = useCallback(
     (offset: number, append: boolean) => {
@@ -134,23 +165,92 @@ export default function ProjectDiscoveryScreen() {
             );
           }}
         />
-        <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
-          {SORTS.map((s) => {
-            const active = sort === s.key;
-            return (
-              <Pressable
-                key={s.key}
-                onPress={() => setSort(s.key)}
-                style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: active ? colors.ivoryDeep : 'transparent' }}
-              >
-                <Text style={{ fontWeight: '500', fontSize: 10.5, color: active ? colors.oxblood : colors.inkSoft, textTransform: 'uppercase' }}>{s.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* For You / Sort toggle — For You is the retuned recommendation
+            pipeline (default); Sort is the flat discover view below, kept
+            reachable as an explicit alternative. Only meaningful without an
+            active filter, since recommendations has no search/category params. */}
+        {!hasActiveFilters ? (
+          <View style={{ flexDirection: 'row', gap: 4, marginHorizontal: spacing.lg, marginBottom: spacing.sm, backgroundColor: colors.ivoryDeep, borderRadius: 10, padding: 3 }}>
+            {(['for-you', 'sort'] as const).map((mode) => {
+              const active = browseMode === mode;
+              return (
+                <Pressable
+                  key={mode}
+                  onPress={() => setBrowseMode(mode)}
+                  style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: active ? colors.paper : 'transparent' }}
+                >
+                  <Text style={{ fontWeight: '700', fontSize: 11, color: active ? colors.oxblood : colors.inkSoft }}>
+                    {mode === 'for-you' ? 'For You' : 'Sort Manually'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {browseMode === 'sort' || hasActiveFilters ? (
+          <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+            {SORTS.map((s) => {
+              const active = sort === s.key;
+              return (
+                <Pressable
+                  key={s.key}
+                  onPress={() => setSort(s.key)}
+                  style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: active ? colors.ivoryDeep : 'transparent' }}
+                >
+                  <Text style={{ fontWeight: '500', fontSize: 10.5, color: active ? colors.oxblood : colors.inkSoft, textTransform: 'uppercase' }}>{s.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
     ),
-    [query, category, sort, colors, spacing]
+    [query, category, sort, colors, spacing, browseMode, hasActiveFilters]
+  );
+
+  const renderCard = (item: DiscoverProject) => (
+    <Pressable
+      onPress={() => router.push(`/project/${item.id}`)}
+      style={({ pressed }) => [
+        { flex: 1, backgroundColor: colors.paper, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.line },
+        pressed ? { opacity: 0.85 } : null,
+      ]}
+    >
+      <View style={{ aspectRatio: 1, backgroundColor: colors.ivoryDeep }}>
+        {item.coverImage ? <Image source={{ uri: resolveMediaUrl(item.coverImage) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
+        {item.isFeatured ? (
+          <View style={{ position: 'absolute', top: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(23,19,16,0.6)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}>
+            <Star size={9} color={colors.goldSoft} fill={colors.goldSoft} />
+            <Text style={{ fontWeight: '600', fontSize: 8, color: colors.ivory }}>Featured</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={{ padding: 10, gap: 4 }}>
+        <Text style={{ fontWeight: '600', fontSize: 12.5, color: colors.ink }} numberOfLines={1}>
+          {item.title}
+        </Text>
+        {item.creator ? (
+          <Pressable
+            onPress={() => router.push(`/profile/${item.creator!.userId}`)}
+            hitSlop={4}
+            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 5 }, pressed ? { opacity: 0.7 } : null]}
+          >
+            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: colors.inkSoft, overflow: 'hidden' }}>
+              {item.creator.avatar ? <Image source={{ uri: resolveMediaUrl(item.creator.avatar) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
+            </View>
+            <Text style={{ fontWeight: '400', fontSize: 10, color: colors.inkSoft, flexShrink: 1 }} numberOfLines={1}>
+              {item.creator.displayName}
+            </Text>
+            {isVerified({ subscriptionTier: item.creator.subscriptionTier, verified: item.creator.isVerified }) ? <VerifiedBadge size="sm" /> : null}
+          </Pressable>
+        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+          <Eye size={10} color={colors.inkSoft} />
+          <Text style={{ fontWeight: '500', fontSize: 9.5, color: colors.inkSoft }}>{item.viewCount}</Text>
+        </View>
+      </View>
+    </Pressable>
   );
 
   return (
@@ -159,7 +259,30 @@ export default function ProjectDiscoveryScreen() {
         <Text style={{ ...typeScale.h1, fontFamily: undefined, fontWeight: '700', color: colors.ink }}>Projects</Text>
       </View>
 
-      {error ? (
+      {browseMode === 'for-you' && !hasActiveFilters ? (
+        forYouError ? (
+          <ErrorState message={forYouError} onRetry={loadForYou} />
+        ) : forYouProjects === null ? (
+          <LoadingState label="Loading your recommendations…" />
+        ) : forYouProjects.length === 0 ? (
+          <View style={{ flex: 1 }}>
+            {header}
+            <EmptyState title="No recommendations yet" message="Engage with a few projects and we'll start tailoring this feed to you." />
+          </View>
+        ) : (
+          <FlatList
+            data={forYouProjects}
+            keyExtractor={(p) => p.id}
+            numColumns={2}
+            columnWrapperStyle={{ gap: 12, paddingHorizontal: spacing.lg }}
+            contentContainerStyle={{ gap: 12, paddingBottom: spacing.xl }}
+            ListHeaderComponent={header}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadForYou(); setRefreshing(false); }} tintColor={colors.oxblood} />}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => renderCard(item)}
+          />
+        )
+      ) : error ? (
         <ErrorState message={error} onRetry={() => load(0, false)} />
       ) : projects === null ? (
         <LoadingState label="Loading projects…" />
@@ -180,49 +303,7 @@ export default function ProjectDiscoveryScreen() {
           onEndReachedThreshold={0.4}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.oxblood} />}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => router.push(`/project/${item.id}`)}
-              style={({ pressed }) => [
-                { flex: 1, backgroundColor: colors.paper, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.line },
-                pressed ? { opacity: 0.85 } : null,
-              ]}
-            >
-              <View style={{ aspectRatio: 1, backgroundColor: colors.ivoryDeep }}>
-                {item.coverImage ? <Image source={{ uri: resolveMediaUrl(item.coverImage) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
-                {item.isFeatured ? (
-                  <View style={{ position: 'absolute', top: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(23,19,16,0.6)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}>
-                    <Star size={9} color={colors.goldSoft} fill={colors.goldSoft} />
-                    <Text style={{ fontWeight: '600', fontSize: 8, color: colors.ivory }}>Featured</Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={{ padding: 10, gap: 4 }}>
-                <Text style={{ fontWeight: '600', fontSize: 12.5, color: colors.ink }} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                {item.creator ? (
-                  <Pressable
-                    onPress={() => router.push(`/profile/${item.creator!.userId}`)}
-                    hitSlop={4}
-                    style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 5 }, pressed ? { opacity: 0.7 } : null]}
-                  >
-                    <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: colors.inkSoft, overflow: 'hidden' }}>
-                      {item.creator.avatar ? <Image source={{ uri: resolveMediaUrl(item.creator.avatar) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
-                    </View>
-                    <Text style={{ fontWeight: '400', fontSize: 10, color: colors.inkSoft, flexShrink: 1 }} numberOfLines={1}>
-                      {item.creator.displayName}
-                    </Text>
-                    {isVerified({ subscriptionTier: item.creator.subscriptionTier, verified: item.creator.isVerified }) ? <VerifiedBadge size="sm" /> : null}
-                  </Pressable>
-                ) : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Eye size={10} color={colors.inkSoft} />
-                  <Text style={{ fontWeight: '500', fontSize: 9.5, color: colors.inkSoft }}>{item.viewCount}</Text>
-                </View>
-              </View>
-            </Pressable>
-          )}
+          renderItem={({ item }) => renderCard(item)}
         />
       )}
     </SafeAreaView>

@@ -34,7 +34,10 @@ export interface CreatorAnalytics {
     profileViews: number;
     portfolioSaves: number;
     inquiries: number;
+    /** Real (post likes+interests)/profile-views for the current window — replaced a dead DesignerProfile/TailorProfile column that nothing ever wrote to. */
     engagementRate: number;
+    /** Percentage-point change vs. the prior window, same length. */
+    engagementRateDeltaPts: number;
     totalPosts: number;
     totalLikes: number;
     totalInterests: number;

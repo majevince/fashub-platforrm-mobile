@@ -78,9 +78,10 @@ export { getSavedItems, toggleSavedItem, getSavedItemsStatus } from './savedItem
 export { getEvents, getEvent, attendEvent, unattendEvent, getRecommendedEvents, getRelatedEvents } from './events';
 export { discoverProjects } from './discoverProjects';
 export { getNetworkProfiles } from './network';
-export { getPortfolioProjects, getPortfolioProject, trackProjectView } from './portfolioProjects';
+export { getPortfolioProjects, getPortfolioProject, trackProjectView, shareProject } from './portfolioProjects';
 export { getReviews, createReview } from './reviews';
-export { getSuggestedCreators } from './recommendations';
+export { getSuggestedCreators, getRecommendedProjects } from './recommendations';
+export { trackProjectEngagement } from './projectEngagement';
 export { getTrending } from './trending';
 export { followUser, searchUsers } from './users';
 export type { UserSearchResult } from './users';

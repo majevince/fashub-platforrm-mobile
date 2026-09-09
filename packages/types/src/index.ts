@@ -97,8 +97,9 @@ export type { FabricColorVariant, FabricOwnerInfo, FabricInventoryItem, CreateFa
 export type { WorkflowUpdateEntry, WorkflowStage, WorkflowStatus, WorkflowParticipant, Workflow } from './workflow';
 export { CANCELLATION_REASONS } from './workflow';
 export type { SaveContentType, SavedEventContent, SavedPostContent, SavedProjectContent, SavedItem } from './savedItem';
-export type { DiscoverProjectCreator, DiscoverProject, DiscoverSection, DiscoverSort } from './discoverProject';
+export type { DiscoverProjectCreator, DiscoverProject, DiscoverSection, DiscoverSort, RecommendedProject, RecommendedProjectsResponse } from './discoverProject';
 export { PROJECT_CATEGORIES } from './discoverProject';
+export type { ProjectEngagementType } from './projectEngagement';
 export type { AppNotification } from './notification';
 export type {
   ProfessionalType,

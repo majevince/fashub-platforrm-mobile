@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import Svg, { Path, Circle, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { ChevronLeft, Lock, Eye, Users2, Star, FolderKanban, Briefcase, Bookmark, MessageSquare } from 'lucide-react-native';
+import { ChevronLeft, Lock, Eye, Users2, Star, FolderKanban, Briefcase, Bookmark, MessageSquare, HeartHandshake } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -12,6 +12,7 @@ import {
   getProfileViewAnalytics,
   getCreatorAnalytics,
   getProjectAnalyticsSummary,
+  getRatingStats,
   resolveMediaUrl,
   ApiError,
 } from '@fashub/api-client';
@@ -20,18 +21,20 @@ import { calcProfileStrength } from '../lib/profileStrength';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 
-type TabKey = 'overview' | 'visitors' | 'projects' | 'portfolio';
+type TabKey = 'overview' | 'visitors' | 'engagement' | 'projects' | 'portfolio';
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'visitors', label: 'Visitors' },
+  { key: 'engagement', label: 'Engagement' },
   { key: 'projects', label: 'Projects' },
   { key: 'portfolio', label: 'Portfolio' },
 ];
 
-// Cycled across donut/breakdown segments — colors.gold is this app's real
-// violet accent (see the design-tokens remap), matching the mock's #6D28D9
-// exactly; the other two are the mock's own gold/light-violet secondaries.
-const SEGMENT_COLORS = ['#6D28D9', '#C6A15B', '#8b5cf6', '#6E1F2A'];
+// Cycled across donut/breakdown/bar-chart segments — colors.gold is this
+// app's real violet accent (see the design-tokens remap), matching the
+// mock's #6D28D9 exactly; the rest are the mock's own gold/purple
+// secondaries, so nothing with 3+ segments ever repeats one accent color.
+const SEGMENT_COLORS = ['#6D28D9', '#C6A15B', '#8b5cf6', '#a78bfa', '#6E1F2A'];
 
 /**
  * Gate — checked here, independently of whatever screen linked in (Dashboard's
@@ -202,6 +205,7 @@ export default function InsightsScreen() {
   const [views, setViews] = useState<ProfileViewAnalytics | null>(null);
   const [creator, setCreator] = useState<CreatorAnalytics | null>(null);
   const [projects, setProjects] = useState<ProjectAnalyticsSummary | null>(null);
+  const [ratingDistribution, setRatingDistribution] = useState<{ stars: number; count: number; percentage: number }[] | null>(null);
 
   const checkGate = () => {
     if (!user) return;
@@ -225,6 +229,10 @@ export default function InsightsScreen() {
     getProfileViewAnalytics(user.id).then(setViews).catch(() => {});
     getCreatorAnalytics(user.id).then(setCreator).catch(() => {});
     getProjectAnalyticsSummary(user.id).then(setProjects).catch(() => {});
+    // Review sentiment reuses the same real, already-maintained star-count
+    // columns (RatingStats.fiveStars/fourStars/...) the public profile's
+    // Reviews tab reads — not a new metric, just surfaced here too.
+    getRatingStats(user.id).then((r) => setRatingDistribution(r.distribution ?? null)).catch(() => {});
   }, [gate, user?.id]);
 
   if (!user) return null;
@@ -261,17 +269,22 @@ export default function InsightsScreen() {
         <InsightsPaywall onUpgrade={() => router.push('/profile/settings/billing')} />
       ) : (
         <>
-          <View style={{ flexDirection: 'row', gap: 6, backgroundColor: colors.line, borderRadius: 10, padding: 3, marginHorizontal: spacing.lg, marginBottom: spacing.md }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ flexDirection: 'row', gap: 6, backgroundColor: colors.line, borderRadius: 10, padding: 3, marginHorizontal: spacing.lg }}
+            style={{ flexGrow: 0, marginBottom: spacing.md }}
+          >
             {TABS.map((t) => (
               <Pressable
                 key={t.key}
                 onPress={() => setTab(t.key)}
-                style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: tab === t.key ? colors.paper : 'transparent' }}
+                style={{ alignItems: 'center', paddingVertical: 7, paddingHorizontal: 16, borderRadius: 8, backgroundColor: tab === t.key ? colors.paper : 'transparent' }}
               >
                 <Text style={{ fontSize: 10.5, fontWeight: tab === t.key ? '700' : '400', color: tab === t.key ? colors.gold : colors.inkSoft }}>{t.label}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.md }}>
             {tab === 'overview' && (
@@ -377,6 +390,137 @@ export default function InsightsScreen() {
               </>
             )}
 
+            {tab === 'engagement' && (
+              <>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <StatCard
+                    icon={<HeartHandshake size={13} color={colors.gold} />}
+                    label="Engagement rate"
+                    value={creator ? `${creator.overview.engagementRate}%` : '—'}
+                    sub={
+                      creator
+                        ? `${creator.overview.engagementRateDeltaPts >= 0 ? '↑' : '↓'} ${Math.abs(creator.overview.engagementRateDeltaPts)}pt vs prior`
+                        : undefined
+                    }
+                    subColor={creator && creator.overview.engagementRateDeltaPts >= 0 ? '#16a34a' : colors.oxblood}
+                  />
+                  {/* Follower growth omitted — no historical follower-count
+                      tracking exists anywhere (only a live snapshot), so a
+                      "+14 last 90 days" figure would be fabricated. Flagged
+                      as a follow-up needing a new tracked-over-time field. */}
+                </View>
+
+                <Card title="New vs. returning visitors">
+                  {views ? (
+                    (() => {
+                      const { new: n, returning: r } = views.newVsReturning;
+                      const total = n + r;
+                      return total > 0 ? (
+                        <>
+                          <View style={{ flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden' }}>
+                            <View style={{ width: `${(n / total) * 100}%`, backgroundColor: SEGMENT_COLORS[0] }} />
+                            <View style={{ width: `${(r / total) * 100}%`, backgroundColor: SEGMENT_COLORS[1] }} />
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                            <Text style={{ fontSize: 10.5, color: colors.inkSoft }}>{`New · ${Math.round((n / total) * 100)}%`}</Text>
+                            <Text style={{ fontSize: 10.5, color: colors.inkSoft }}>{`Returning · ${Math.round((r / total) * 100)}%`}</Text>
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={{ fontSize: 12, color: colors.inkSoft }}>No views yet.</Text>
+                      );
+                    })()
+                  ) : (
+                    <Text style={{ fontSize: 12, color: colors.inkSoft }}>Loading…</Text>
+                  )}
+                </Card>
+
+                <Card title="Peak activity times">
+                  {views ? (
+                    (() => {
+                      // Rolled into 8 three-hour buckets to match — real
+                      // hourly data, just coarsened for a readable mobile
+                      // bar chart. Hours are UTC (viewers can be in any
+                      // timezone; there's no per-viewer local time to use).
+                      const buckets: number[] = [];
+                      for (let i = 0; i < 8; i++) {
+                        const slice = views.peakActivity.slice(i * 3, i * 3 + 3);
+                        buckets.push(slice.reduce((s, h) => s + h.count, 0));
+                      }
+                      const max = Math.max(...buckets, 1);
+                      const peakIndex = buckets.indexOf(Math.max(...buckets));
+                      const peakStartHour = peakIndex * 3;
+                      const total = buckets.reduce((s, b) => s + b, 0);
+                      return (
+                        <>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 50 }}>
+                            {buckets.map((count, i) => (
+                              <View
+                                key={i}
+                                style={{
+                                  flex: 1,
+                                  height: `${Math.max((count / max) * 100, 4)}%`,
+                                  backgroundColor: i === peakIndex ? SEGMENT_COLORS[0] : colors.line,
+                                  borderRadius: 2,
+                                }}
+                              />
+                            ))}
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+                            <Text style={{ fontSize: 9, color: colors.inkSoft }}>12am</Text>
+                            <Text style={{ fontSize: 9, color: colors.inkSoft }}>12pm</Text>
+                            <Text style={{ fontSize: 9, color: colors.inkSoft }}>11pm</Text>
+                          </View>
+                          {total > 0 ? (
+                            <Text style={{ fontSize: 10.5, color: colors.inkSoft, marginTop: 8 }}>
+                              Most visitors are active around{' '}
+                              <Text style={{ fontWeight: '700', color: colors.ink }}>{`${peakStartHour}:00–${peakStartHour + 3}:00 UTC`}</Text>
+                            </Text>
+                          ) : (
+                            <Text style={{ fontSize: 12, color: colors.inkSoft, marginTop: 8 }}>No views yet.</Text>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <Text style={{ fontSize: 12, color: colors.inkSoft }}>Loading…</Text>
+                  )}
+                </Card>
+
+                <Card title="Review sentiment">
+                  {ratingDistribution && ratingDistribution.some((d) => d.count > 0) ? (
+                    (() => {
+                      const five = ratingDistribution.find((d) => d.stars === 5);
+                      const four = ratingDistribution.find((d) => d.stars === 4);
+                      const lowCount = ratingDistribution.filter((d) => d.stars <= 3).reduce((s, d) => s + d.count, 0);
+                      const total = ratingDistribution.reduce((s, d) => s + d.count, 0);
+                      const lowPct = total > 0 ? Math.round((lowCount / total) * 100) : 0;
+                      const rows = [
+                        { label: '5★', pct: Math.round(five?.percentage ?? 0), color: SEGMENT_COLORS[1] },
+                        { label: '4★', pct: Math.round(four?.percentage ?? 0), color: SEGMENT_COLORS[1] },
+                        { label: '≤3★', pct: lowPct, color: colors.oxblood },
+                      ];
+                      return (
+                        <View style={{ gap: 8 }}>
+                          {rows.map((row) => (
+                            <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={{ width: 26, fontSize: 10.5, color: colors.inkSoft }}>{row.label}</Text>
+                              <View style={{ flex: 1, height: 7, borderRadius: 4, backgroundColor: colors.line, overflow: 'hidden' }}>
+                                <View style={{ height: '100%', width: `${row.pct}%`, backgroundColor: row.color, borderRadius: 4 }} />
+                              </View>
+                              <Text style={{ width: 28, fontSize: 9, color: colors.inkSoft, textAlign: 'right' }}>{`${row.pct}%`}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })()
+                  ) : (
+                    <Text style={{ fontSize: 12, color: colors.inkSoft }}>No reviews yet.</Text>
+                  )}
+                </Card>
+              </>
+            )}
+
             {tab === 'projects' && (
               <>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -427,40 +571,84 @@ export default function InsightsScreen() {
             {tab === 'portfolio' && (
               <>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <StatCard icon={<Eye size={13} color={colors.gold} />} label="Total views" value={String(projects?.kpis.views.value ?? 0)} />
-                  <StatCard icon={<FolderKanban size={13} color={colors.gold} />} label="Projects" value={String(projects?.totalProjects ?? 0)} />
+                  {(() => {
+                    const portfolioItems = projects?.projectRanking.filter((p) => p.type === 'portfolio') ?? [];
+                    const portfolioViews = portfolioItems.reduce((s, p) => s + p.views, 0);
+                    const portfolioSaves = portfolioItems.reduce((s, p) => s + p.saves, 0);
+                    return (
+                      <>
+                        <StatCard icon={<Eye size={13} color={colors.gold} />} label="Portfolio views" value={String(portfolioViews)} />
+                        {/* Click-through rate omitted — no impression tracking
+                            exists for portfolio pieces (only raw view counts),
+                            so a CTR figure has no real denominator. Flagged as
+                            a follow-up needing impression logging. */}
+                        <StatCard icon={<Bookmark size={13} color={colors.oxblood} />} label="Portfolio saves" value={String(portfolioSaves)} />
+                      </>
+                    );
+                  })()}
                 </View>
-                {projects?.insights.length ? (
-                  <Card title="Insights">
-                    <View style={{ gap: 6 }}>
-                      {projects.insights.map((line, i) => (
-                        <Text key={i} style={{ fontSize: 12, color: colors.ink }}>{`• ${line}`}</Text>
-                      ))}
-                    </View>
-                  </Card>
-                ) : null}
-                <Card title="Top performing projects">
-                  {projects && projects.projectRanking.length > 0 ? (
-                    <View style={{ gap: 12 }}>
-                      {projects.projectRanking.slice(0, 8).map((p) => {
-                        const thumbUri = resolveMediaUrl(p.thumbnail);
-                        return (
-                          <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: colors.line, overflow: 'hidden' }}>
-                              {thumbUri ? <Image source={{ uri: thumbUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
+
+                <Card title="Most saved pieces">
+                  {(() => {
+                    const mostSaved = (projects?.projectRanking.filter((p) => p.type === 'portfolio' && p.saves > 0) ?? [])
+                      .sort((a, b) => b.saves - a.saves)
+                      .slice(0, 5);
+                    if (mostSaved.length === 0) {
+                      return <Text style={{ fontSize: 12, color: colors.inkSoft }}>No saves yet.</Text>;
+                    }
+                    return (
+                      <View style={{ gap: 12 }}>
+                        {mostSaved.map((p) => {
+                          const thumbUri = resolveMediaUrl(p.thumbnail);
+                          return (
+                            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <View style={{ width: 36, height: 36, borderRadius: 9, backgroundColor: colors.line, overflow: 'hidden' }}>
+                                {thumbUri ? <Image source={{ uri: thumbUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
+                              </View>
+                              <Text style={{ flex: 1, fontSize: 12, color: colors.ink }} numberOfLines={1}>{p.title}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Bookmark size={12} color={colors.inkSoft} />
+                                <Text style={{ fontSize: 11, color: colors.inkSoft }}>{p.saves}</Text>
+                              </View>
                             </View>
-                            <View style={{ flex: 1, minWidth: 0 }}>
-                              <Text style={{ fontSize: 12.5, fontWeight: '600', color: colors.ink }} numberOfLines={1}>{p.title}</Text>
-                              <Text style={{ fontSize: 10.5, color: colors.inkSoft }}>{`${p.views} views · ${p.likes} likes`}</Text>
+                          );
+                        })}
+                      </View>
+                    );
+                  })()}
+                </Card>
+
+                {projects?.categoryBenchmark ? (
+                  <Card title="You vs. category average">
+                    <Text style={{ fontSize: 10.5, color: colors.inkSoft, marginBottom: 10, marginTop: -6 }}>
+                      {`${projects.categoryBenchmark.category} · ${projects.categoryBenchmark.city}`}
+                    </Text>
+                    {(() => {
+                      const { yourViews, categoryAverageViews } = projects.categoryBenchmark;
+                      const max = Math.max(yourViews, categoryAverageViews, 1);
+                      const diffPct = categoryAverageViews > 0 ? Math.round(((yourViews - categoryAverageViews) / categoryAverageViews) * 100) : 0;
+                      return (
+                        <>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <Text style={{ width: 68, fontSize: 10, color: colors.inkSoft }}>Your views</Text>
+                            <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.line, overflow: 'hidden' }}>
+                              <View style={{ height: '100%', width: `${(yourViews / max) * 100}%`, backgroundColor: SEGMENT_COLORS[0], borderRadius: 4 }} />
                             </View>
                           </View>
-                        );
-                      })}
-                    </View>
-                  ) : (
-                    <Text style={{ fontSize: 12, color: colors.inkSoft }}>No projects yet.</Text>
-                  )}
-                </Card>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ width: 68, fontSize: 10, color: colors.inkSoft }}>Category avg</Text>
+                            <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.line, overflow: 'hidden' }}>
+                              <View style={{ height: '100%', width: `${(categoryAverageViews / max) * 100}%`, backgroundColor: colors.inkSoft, opacity: 0.4, borderRadius: 4 }} />
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 10.5, color: diffPct >= 0 ? '#16a34a' : colors.oxblood, marginTop: 8 }}>
+                            {diffPct >= 0 ? `You're ${diffPct}% above category average` : `You're ${Math.abs(diffPct)}% below category average`}
+                          </Text>
+                        </>
+                      );
+                    })()}
+                  </Card>
+                ) : null}
               </>
             )}
           </ScrollView>

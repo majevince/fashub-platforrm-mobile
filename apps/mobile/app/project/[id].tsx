@@ -3,16 +3,25 @@ import { View, Text, Pressable, ScrollView, Dimensions, NativeSyntheticEvent, Na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChevronLeft, Star, Pin, Lock, Eye, Images as ImagesIcon, MessageCircle, FileText, CalendarClock } from 'lucide-react-native';
+import { ChevronLeft, Star, Pin, Lock, Eye, Images as ImagesIcon, MessageCircle, FileText, CalendarClock, Bookmark, Share2 } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
-import { getPortfolioProject, resolveMediaUrl, ApiError } from '@fashub/api-client';
+import {
+  getPortfolioProject,
+  trackProjectEngagement,
+  toggleSavedItem,
+  getSavedItemsStatus,
+  resolveMediaUrl,
+  API_BASE_URL,
+  ApiError,
+} from '@fashub/api-client';
 import type { PortfolioProjectDetail } from '@fashub/types';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
 import { InquiryComposer, type InquiryType } from '../../components/portfolio/InquiryComposer';
 import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
+import { ProjectShareModal } from '../../components/portfolio/ProjectShareModal';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -34,6 +43,18 @@ const SCREEN_W = Dimensions.get('window').width;
  * isFeatured, isPinned, viewCount, createdAt. There is no pricing/budget,
  * timeline/status, or location field anywhere in the data model — web
  * doesn't show them either, so nothing is missing here relative to web.
+ *
+ * Funnel-event instrumentation (marketplace-intent ranking pipeline):
+ * project_view fires on mount, project_detail_zoom on gallery open,
+ * project_inquiry_sent from InquiryComposer's success path, project_save
+ * from the Bookmark button, and project_share from ProjectShareModal (both
+ * its native-share and its "Send to User" path — the latter is the actual
+ * missing web feature this closes: sharing a project directly to another
+ * FaSHub user via POST /api/portfolio/projects/[id]/share, landing as a
+ * real message in their inbox that the existing ProjectMessageCard renderer
+ * already knows how to display). Save/share are reachable only from this
+ * detail screen, not from the (tabs)/project.tsx grid cards — the grid is
+ * tap-to-open only, per Vincent's call.
  */
 export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,6 +67,8 @@ export default function ProjectDetailScreen() {
   const [imageIdx, setImageIdx] = useState(0);
   const [inquiryType, setInquiryType] = useState<InquiryType | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const load = () => {
     if (!id) return;
@@ -56,6 +79,36 @@ export default function ProjectDetailScreen() {
   };
 
   useEffect(load, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    trackProjectEngagement(id, 'project_view', user?.id);
+  }, [id, user?.id]);
+
+  useEffect(() => {
+    if (!id || !user) return;
+    getSavedItemsStatus(user.id, 'PROJECT', [id])
+      .then((res) => setSaved(!!res.saved[id]))
+      .catch(() => {});
+  }, [id, user?.id]);
+
+  const handleToggleSave = async () => {
+    if (!user || !project || saveLoading) return;
+    setSaveLoading(true);
+    const next = !saved;
+    setSaved(next);
+    try {
+      const res = await toggleSavedItem(user.id, project.id, 'PROJECT');
+      setSaved(res.saved);
+      if (res.saved) trackProjectEngagement(project.id, 'project_save', user.id);
+    } catch {
+      setSaved(!next);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const [shareOpen, setShareOpen] = useState(false);
 
   if (!user || !id) return null;
 
@@ -103,7 +156,7 @@ export default function ProjectDetailScreen() {
                 onMomentumScrollEnd={onImageScroll}
               >
                 {images.map((uri, i) => (
-                  <Pressable key={i} onPress={() => { setImageIdx(i); setGalleryOpen(true); }} style={{ width: SCREEN_W, height: '100%' }}>
+                  <Pressable key={i} onPress={() => { setImageIdx(i); setGalleryOpen(true); trackProjectEngagement(project.id, 'project_detail_zoom', user?.id, { index: i }); }} style={{ width: SCREEN_W, height: '100%' }}>
                     <Image source={{ uri: resolveMediaUrl(uri) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="contain" />
                   </Pressable>
                 ))}
@@ -139,6 +192,33 @@ export default function ProjectDetailScreen() {
           >
             <ChevronLeft size={20} color="#fff" />
           </Pressable>
+
+          {/* Quick actions — same top-right placement as web's DiscoveryCard */}
+          <View style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              onPress={handleToggleSave}
+              disabled={saveLoading}
+              hitSlop={8}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: saved ? colors.gold : 'rgba(20,18,16,0.5)',
+                opacity: saveLoading ? 0.6 : 1,
+              }}
+            >
+              <Bookmark size={17} color="#fff" fill={saved ? '#fff' : 'transparent'} />
+            </Pressable>
+            <Pressable
+              onPress={() => setShareOpen(true)}
+              hitSlop={8}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Share2 size={16} color="#fff" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ padding: spacing.lg, gap: spacing.md }}>
@@ -306,6 +386,14 @@ export default function ProjectDetailScreen() {
         images={resolvedImages}
         initialIndex={imageIdx}
         onClose={() => setGalleryOpen(false)}
+      />
+
+      <ProjectShareModal
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        project={{ id: project.id, title: project.title, category: project.category, coverImage: project.coverImage }}
+        currentUserId={user.id}
+        shareUrl={`${API_BASE_URL}${creator ? `/profile/${creator.userId}?tab=projects&projectId=${project.id}` : `/projects?projectId=${project.id}`}`}
       />
     </SafeAreaView>
   );
