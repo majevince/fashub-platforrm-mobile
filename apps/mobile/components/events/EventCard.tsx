@@ -9,6 +9,7 @@ import { resolveMediaUrl, toggleSavedItem, attendEvent, unattendEvent } from '@f
 import type { EventListItem } from '@fashub/types';
 import { EVENT_CATEGORY_LABELS } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
+import { AvatarStack } from '../ui/AvatarStack';
 
 function formatEventDate(startDate: string, endDate?: string | null) {
   const start = new Date(startDate);
@@ -160,8 +161,12 @@ export function EventCard({
             {event.distance != null ? ` · ${Math.round(event.distance)} km` : ''}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Users size={13} color={almostFull ? colors.oxblood : VF.inkFaint} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {event.attendeePreview && event.attendeePreview.length > 0 ? (
+            <AvatarStack profiles={event.attendeePreview} totalCount={event.attendeeCount} size={20} />
+          ) : (
+            <Users size={13} color={almostFull ? colors.oxblood : VF.inkFaint} />
+          )}
           <Text style={{ fontSize: 11.5, fontWeight: '500', color: almostFull ? colors.oxblood : colors.inkSoft }}>
             {event.attendeeCount}{event.capacity ? `/${event.capacity}` : ''} attending{almostFull ? ' · Almost full' : ''}
           </Text>

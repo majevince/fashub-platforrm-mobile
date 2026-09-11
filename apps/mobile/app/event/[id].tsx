@@ -26,6 +26,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
 import { EventCard } from '../../components/events/EventCard';
+import { AvatarStack } from '../../components/ui/AvatarStack';
 import { EventsMapWebView } from '../../components/events/EventsMapWebView';
 import { EventTicketModal } from '../../components/events/EventTicketModal';
 import { violetColors as VF } from '@fashub/design-tokens';
@@ -239,7 +240,11 @@ export default function EventDetailScreen() {
           ) : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-            <Users size={15} color={VF.inkFaint} style={{ marginTop: 1 }} />
+            {event.attendees && event.attendees.length > 0 ? (
+              <AvatarStack profiles={event.attendees.slice(0, 3).map((a) => a.user)} totalCount={attendeeCount} size={24} />
+            ) : (
+              <Users size={15} color={VF.inkFaint} style={{ marginTop: 1 }} />
+            )}
             <View>
               <Text style={{ fontSize: 13, fontWeight: '500', color: colors.inkSoft }}>
                 {attendeeCount}{event.capacity ? ` / ${event.capacity}` : ''} attendees

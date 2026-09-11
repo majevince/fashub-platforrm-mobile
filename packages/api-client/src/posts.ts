@@ -76,8 +76,12 @@ export function reportComment(postId: string, commentId: string, userId: string)
   return apiPost(`/api/posts/${postId}/comments/${commentId}/report`, { userId });
 }
 
-/** Matches POST /api/posts/[postId]/repost — server 400s if this user already reposted it. */
-export function repostPost(postId: string, userId: string, comment?: string): Promise<{ message: string }> {
+/** Matches POST /api/posts/[postId]/repost exactly — server 400s if this user already reposted it. */
+export function repostPost(
+  postId: string,
+  userId: string,
+  comment?: string
+): Promise<{ message: string; repost: { id: string; createdAt: string } }> {
   return apiPost(`/api/posts/${postId}/repost`, { userId, comment });
 }
 

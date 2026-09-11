@@ -1,0 +1,100 @@
+# Mobile dev-server stack: two independent Metro/Expo containers
+# (mobile-1, mobile-2) behind an nginx load balancer, reachable through one
+# common port instead of connecting to a container directly — the same
+# shape as fashub's own app-1/app-2/app-3 + nginx pattern, applied to the
+# mobile Expo dev server.
+#
+# Caveat worth knowing up front: unlike the Next.js app-1/2/3 backends,
+# Metro is not a stateless, horizontally-scalable service — each container
+# runs its own independent bundler with its own in-memory cache and
+# filesystem watcher. This setup does not give you more bundling capacity
+# or real redundancy; it gives you the requested single-endpoint + LB
+# shape. See nginx/mobile.conf for how session affinity (ip_hash) is used
+# to keep a given client's dev session on one backend for consistency.
+#
+# Run: docker compose -f docker-compose.mobile.yml up
+# Reach the app at: http://localhost:${MOBILE_LB_PORT:-8082}
+services:
+  mobile-1:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile.dev
+    container_name: fashub-mobile-1
+    expose:
+      - "8081"
+    environment:
+      # Defaults to the host's LAN IP (routes through fashub's own nginx on
+      # port 80, load-balanced the same way real traffic is) rather than an
+      # internal Docker-network hostname, so this stack has no dependency
+      # on fashub's own dev network existing. Override in a .env file at
+      # this directory's root if needed — e.g. https://fas-hub.com for the
+      # public endpoint.
+      - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://fas-hub.com}
+      - EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      - EXPO_PACKAGER_HOSTNAME=${EXPO_PACKAGER_HOSTNAME:-localhost}
+    volumes:
+      - ./apps/mobile:/app/apps/mobile
+      - ./packages:/app/packages
+      - mobile-1-node-modules:/app/node_modules
+      - mobile-1-app-node-modules:/app/apps/mobile/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mobile-lb-network
+
+  mobile-2:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile.dev
+    container_name: fashub-mobile-2
+    expose:
+      - "8081"
+    environment:
+      - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-https://fas-hub.com}
+      - EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      - EXPO_PACKAGER_HOSTNAME=${EXPO_PACKAGER_HOSTNAME:-localhost}
+    volumes:
+      - ./apps/mobile:/app/apps/mobile
+      - ./packages:/app/packages
+      - mobile-2-node-modules:/app/node_modules
+      - mobile-2-app-node-modules:/app/apps/mobile/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mobile-lb-network
+
+  mobile-nginx:
+    image: nginx:alpine
+    container_name: fashub-mobile-nginx
+    depends_on:
+      mobile-1:
+        condition: service_healthy
+      mobile-2:
+        condition: service_healthy
+    ports:
+      - "${MOBILE_LB_PORT:-8082}:80"
+    volumes:
+      - ./nginx/mobile.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - mobile-lb-network
+
+# Separate named volumes per container (not anonymous /app/node_modules)
+# so each Metro instance keeps its own install rather than one container's
+# node_modules colliding with or overwriting the other's.
+volumes:
+  mobile-1-node-modules:
+  mobile-1-app-node-modules:
+  mobile-2-node-modules:
+  mobile-2-app-node-modules:
+
+networks:
+  mobile-lb-network:
+    driver: bridge

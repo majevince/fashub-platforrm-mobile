@@ -167,7 +167,10 @@ export default function FeedScreen() {
           keyExtractor={(p) => p.id}
           renderItem={({ item, index }) => (
             <>
-              <PostCard post={item} />
+              <PostCard
+                post={item}
+                onReposted={(newPost) => setPosts((prev) => (prev ? [newPost, ...prev] : [newPost]))}
+              />
               {index === 0 ? <SuggestedProsCard creators={suggestions.items} total={suggestions.total} /> : null}
             </>
           )}

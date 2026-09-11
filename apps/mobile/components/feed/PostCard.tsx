@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Share, Dimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { violetColors as V } from '@fashub/design-tokens';
-import { ThumbsUp, MessageCircle, Share2, Bookmark, MoreHorizontal, MapPin, Repeat2 } from 'lucide-react-native';
+import { ThumbsUp, MessageCircle, Share2, Bookmark, MoreHorizontal, Repeat2, ChevronDown } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { toggleLike, toggleSavedPost, repostPost, resolveMediaUrl, ApiError } from '@fashub/api-client';
+import { toggleLike, toggleSavedPost, resolveMediaUrl } from '@fashub/api-client';
 import type { FeedPost } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
 import { CommentsSheet } from './CommentsSheet';
+import { RepostModal, type RepostTarget } from './RepostModal';
+import { PostShareModal } from './PostShareModal';
 
 type Props = {
   post: FeedPost;
+  /** Called once the backend confirms a new repost of this card, so the
+   * screen holding the feed list can prepend it — mirrors web's Feed page
+   * splicing `repostData` into local state after a successful repost. */
+  onReposted?: (newPost: FeedPost) => void;
 };
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -28,15 +34,27 @@ function formatDate(iso: string): string {
  * violet Feed palette (packages/design-tokens's `violetColors`, confirmed
  * against lib/design/tokens.ts), not this app's default ink/ivory/gold set.
  *
- * Deliberately NOT ported: web's progressive-disclosure ("View details &
- * comments" collapse, professional badges, event banners, quick
- * actions/follow, quote-request modal, Message CTA) and its 5-emoji
+ * Deliberately NOT ported: professional badges, event banners, quick
+ * actions/follow, quote-request modal, Message CTA, and web's 5-emoji
  * LinkedIn-style reaction picker (hover-to-reveal on desktop, would need a
- * long-press touch equivalent). Both are real web features and larger,
- * separate scope than this card's visual/verified-badge parity pass — see
- * the Feed color-parity ticket this was built for.
+ * long-press touch equivalent). Real web features, larger/separate scope.
+ *
+ * Repost/Share/View-details-&-comments (this pass): matches web's real,
+ * live Feed-page behavior (app/feed/page.tsx handleRepostClick/handleRepost,
+ * SharePostModal.tsx, PostCard.tsx's detailsExpanded) — see RepostModal.tsx
+ * and PostShareModal.tsx for the exact web behaviors each replicates,
+ * including two confirmed web-side bugs (dropped repost comment via
+ * handleRepostWithNote, and a payload mismatch in the internal share-to-user
+ * endpoint) that are fixed rather than ported forward. "View details &
+ * comments" gates materials/colors/sizes/tags exactly like web's
+ * detailsExpanded; web's stock/delivery-time fields aren't in mobile's
+ * FeedPost type and are omitted rather than fabricated. Mobile's own
+ * CommentsSheet bottom-sheet (a different, already-functional pattern from
+ * web's inline CommentSection) stays as the comment UI; tapping Comment
+ * still opens it, and also expands details — mirroring web's
+ * onToggleComments coupling (`setDetailsExpanded(true)`).
  */
-export function PostCard({ post }: Props) {
+export function PostCard({ post, onReposted }: Props) {
   const { user } = useAuth();
   const router = useRouter();
   const openDetail = () => router.push(`/post/${post.id}`);
@@ -45,11 +63,13 @@ export function PostCard({ post }: Props) {
   const [likesCount, setLikesCount] = useState(post.likes.length);
   const [saved, setSaved] = useState(false);
   const [savedCount, setSavedCount] = useState(post.interests.length);
-  const [reposted, setReposted] = useState(false);
   const [commentsCount, setCommentsCount] = useState(post.comments.length);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [repostModalOpen, setRepostModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const handleLike = async () => {
     if (!user) return;
@@ -80,20 +100,67 @@ export function PostCard({ post }: Props) {
     }
   };
 
-  const handleRepost = async () => {
-    if (!user || reposted) return;
-    try {
-      await repostPost(post.id, user.id);
-      setReposted(true);
-    } catch (err) {
-      if (err instanceof ApiError && /already reposted/i.test(err.message)) {
-        setReposted(true);
-      }
-    }
-  };
+  // Repost-of-repost redirects to the true original, matching web's
+  // handleRepostClick (prevents repost chains).
+  const repostTarget: RepostTarget =
+    post.isRepost && post.originalPost
+      ? {
+          id: post.originalPostId || post.originalPost.id,
+          title: post.originalPost.title,
+          authorName: post.originalPost.authorName,
+          images: post.originalPost.images,
+        }
+      : { id: post.id, title: post.title, authorName: post.authorName, images: post.images };
 
-  const handleShare = () => {
-    Share.share({ message: `${post.title} — ${post.authorName} on FaSHub` }).catch(() => {});
+  // Web builds its optimistic repost entry by spreading the already-loaded
+  // post data + repost metadata (app/feed/page.tsx handleRepost) rather than
+  // relying on the API response, which only echoes a thin originalPost
+  // snapshot. Mirrored here so the new repost is immediately visible in the
+  // feed instead of only existing server-side until the next full refetch.
+  const handleReposted = ({ id, createdAt, comment }: { id: string; createdAt: string; comment: string | undefined }) => {
+    if (!user || !onReposted) return;
+    const original = post.isRepost && post.originalPost ? post.originalPost : post;
+    onReposted({
+      ...post,
+      ...original,
+      id,
+      authorId: user.id,
+      authorName: user.displayName,
+      authorAvatar: user.avatar ?? null,
+      authorRole: user.role,
+      authorSubscriptionTier: 'free',
+      authorIsVerified: false,
+      tags: post.tags,
+      materials: post.materials,
+      colors: post.colors,
+      sizes: post.sizes,
+      price: post.price,
+      priceRange: post.priceRange,
+      location: post.location,
+      likes: [],
+      interests: [],
+      comments: [],
+      isRepost: true,
+      originalPostId: repostTarget.id,
+      originalPost: {
+        id: original.id,
+        authorId: original.authorId,
+        authorName: original.authorName,
+        authorAvatar: original.authorAvatar,
+        authorRole: original.authorRole,
+        authorSubscriptionTier: original.authorSubscriptionTier,
+        authorIsVerified: original.authorIsVerified,
+        title: original.title,
+        description: original.description,
+        images: original.images,
+        videos: original.videos,
+        category: original.category,
+        createdAt: original.createdAt,
+      },
+      repostComment: comment ?? null,
+      createdAt,
+      updatedAt: createdAt,
+    });
   };
 
   const onMediaScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -213,13 +280,55 @@ export function PostCard({ post }: Props) {
             </Text>
           </Pressable>
         ) : null}
-        {post.tags.length > 0 && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {post.tags.map((tag) => (
-              <View key={tag} style={{ backgroundColor: V.primarySoft, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3.5 }}>
-                <Text style={{ fontSize: 9.5, fontWeight: '500', color: V.primaryDeep }}>#{tag}</Text>
+        {(post.tags.length > 0 || post.materials.length > 0 || post.colors.length > 0 || post.sizes.length > 0) && (
+          <Pressable
+            onPress={() => setDetailsExpanded((v) => !v)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 }}
+          >
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: V.primary }}>
+              {detailsExpanded ? 'Hide details & comments' : 'View details & comments'}
+            </Text>
+            <ChevronDown
+              size={13}
+              color={V.primary}
+              strokeWidth={2.5}
+              style={{ transform: [{ rotate: detailsExpanded ? '180deg' : '0deg' }] }}
+            />
+          </Pressable>
+        )}
+        {detailsExpanded && (
+          <View style={{ gap: 8 }}>
+            {(post.materials.length > 0 || post.colors.length > 0 || post.sizes.length > 0) && (
+              <View style={{ gap: 4 }}>
+                {post.materials.length > 0 && (
+                  <Text style={{ fontSize: 11.5, color: V.inkSoft }}>
+                    <Text style={{ fontWeight: '700', color: V.ink }}>Materials: </Text>
+                    {post.materials.join(', ')}
+                  </Text>
+                )}
+                {post.colors.length > 0 && (
+                  <Text style={{ fontSize: 11.5, color: V.inkSoft }}>
+                    <Text style={{ fontWeight: '700', color: V.ink }}>Colors: </Text>
+                    {post.colors.join(', ')}
+                  </Text>
+                )}
+                {post.sizes.length > 0 && (
+                  <Text style={{ fontSize: 11.5, color: V.inkSoft }}>
+                    <Text style={{ fontWeight: '700', color: V.ink }}>Sizes: </Text>
+                    {post.sizes.join(', ')}
+                  </Text>
+                )}
               </View>
-            ))}
+            )}
+            {post.tags.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {post.tags.map((tag) => (
+                  <View key={tag} style={{ backgroundColor: V.primarySoft, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3.5 }}>
+                    <Text style={{ fontSize: 9.5, fontWeight: '500', color: V.primaryDeep }}>#{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -244,24 +353,25 @@ export function PostCard({ post }: Props) {
             <Text style={{ fontSize: 12, fontWeight: '600', color: saved ? V.amber : V.inkFaint }}>{savedCount}</Text>
           </Pressable>
           <Pressable
-            onPress={() => setCommentsOpen(true)}
+            onPress={() => {
+              setCommentsOpen(true);
+              setDetailsExpanded(true);
+            }}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10 }}
           >
             <MessageCircle size={19} color={V.inkFaint} strokeWidth={2} />
             <Text style={{ fontSize: 12, fontWeight: '600', color: V.inkFaint }}>{commentsCount}</Text>
           </Pressable>
-          <Pressable onPress={handleShare} style={{ padding: 10 }}>
+          <Pressable onPress={() => setShareModalOpen(true)} style={{ padding: 10 }}>
             <Share2 size={19} color={V.inkFaint} strokeWidth={2} />
           </Pressable>
         </View>
         <Pressable
-          onPress={handleRepost}
+          onPress={() => setRepostModalOpen(true)}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10 }}
         >
-          <Repeat2 size={18} color={reposted ? V.primary : V.inkFaint} strokeWidth={2} />
-          <Text style={{ fontSize: 12.5, fontWeight: '600', color: reposted ? V.primary : V.inkFaint }}>
-            {reposted ? 'Reposted' : 'Repost'}
-          </Text>
+          <Repeat2 size={18} color={V.inkFaint} strokeWidth={2} />
+          <Text style={{ fontSize: 12.5, fontWeight: '600', color: V.inkFaint }}>Repost</Text>
         </Pressable>
       </View>
 
@@ -272,6 +382,39 @@ export function PostCard({ post }: Props) {
         onClose={() => setCommentsOpen(false)}
         onCommentAdded={() => setCommentsCount((c) => c + 1)}
       />
+
+      {user && (
+        <RepostModal
+          visible={repostModalOpen}
+          onClose={() => setRepostModalOpen(false)}
+          target={repostTarget}
+          userId={user.id}
+          onReposted={handleReposted}
+        />
+      )}
+
+      {user && (
+        <PostShareModal
+          visible={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          post={{
+            id: post.id,
+            title: post.title,
+            authorName: post.authorName,
+            images: post.images,
+            price: post.price,
+            priceRange: post.priceRange,
+            category: post.category,
+            materials: post.materials,
+            colors: post.colors,
+            sizes: post.sizes,
+          }}
+          currentUserId={user.id}
+          onOpenRepost={() => setRepostModalOpen(true)}
+          saved={saved}
+          onToggleSave={handleSave}
+        />
+      )}
     </View>
   );
 }

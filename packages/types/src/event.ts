@@ -96,6 +96,8 @@ export interface EventListItem {
   externalUrl?: string | null;
   capacity?: number | null;
   attendeeCount: number;
+  /** Up to 3 most-recently-registered attendees, for the avatar-stack preview. */
+  attendeePreview?: Array<{ id: string; displayName: string; avatar: string | null }>;
   requiresRegistration: boolean;
   registrationUrl?: string | null;
   isFree: boolean;
@@ -118,6 +120,8 @@ export interface EventListItem {
 /** Matches GET /api/events/[eventId] — same shape plus a fuller organizer (adds email). */
 export interface EventDetail extends EventListItem {
   organizer?: (EventOrganizerSummary & { email?: string | null }) | null;
+  /** Full attendee list (already on the wire today, unlike the list endpoints' `attendeePreview` sample) — take the first few for the avatar stack. */
+  attendees?: Array<{ user: { id: string; displayName: string; avatar: string | null } }>;
 }
 
 export interface EventsListResponse {
