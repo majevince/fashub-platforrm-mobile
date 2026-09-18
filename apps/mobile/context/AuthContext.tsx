@@ -50,13 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [persistSession]
   );
 
-  const signup = useCallback(
-    async (payload: SignupPayload) => {
-      const res = await apiSignup(payload);
-      await persistSession(res.user, res.token, res.refreshToken);
-    },
-    [persistSession]
-  );
+  // Matches web's real signup flow (app/auth/signup/page.tsx) exactly: the
+  // signup endpoint does return a full auth response (token included, same
+  // shape as login), but web deliberately never uses it to establish a
+  // session — it redirects to the login screen instead, requiring the new
+  // user to sign in with the credentials they just chose. Auto-logging in
+  // here would silently diverge from that.
+  const signup = useCallback(async (payload: SignupPayload) => {
+    await apiSignup(payload);
+  }, []);
 
   const logout = useCallback(async () => {
     await secureStorage.deleteItemAsync(TOKEN_KEY);

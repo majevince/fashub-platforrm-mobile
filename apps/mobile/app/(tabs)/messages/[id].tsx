@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, FlatList, KeyboardAvoidingView, Keyboard, Platform, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { ChevronLeft, Info } from 'lucide-react-native';
@@ -41,7 +41,7 @@ import { LoadingState } from '../../../components/LoadingState';
 import { Divider } from '../../../components/Divider';
 import { useOnlineStatus } from '../../../hooks/useOnlineStatus';
 import { formatDayLabel, formatLastSeen, isSameDay } from '../../../lib/chatFormat';
-import { TAB_BAR_STYLE } from '../_layout';
+import { getTabBarStyle } from '../_layout';
 
 const MESSAGE_POLL_MS = 500;
 const HEADER_PRESENCE_MS = 10000;
@@ -62,6 +62,7 @@ export default function ThreadScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const insets = useSafeAreaInsets();
 
   // The (tabs) Tabs navigator renders a persistent bottom tab bar under
   // every screen in every tab, including this pushed thread screen (it's a
@@ -76,8 +77,8 @@ export default function ThreadScreen() {
     useCallback(() => {
       const parent = navigation.getParent();
       parent?.setOptions({ tabBarStyle: { display: 'none' } });
-      return () => parent?.setOptions({ tabBarStyle: TAB_BAR_STYLE });
-    }, [navigation])
+      return () => parent?.setOptions({ tabBarStyle: getTabBarStyle(insets.bottom) });
+    }, [navigation, insets.bottom])
   );
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -253,8 +254,21 @@ export default function ThreadScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={0}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: V.line }}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <ChevronLeft size={22} color={V.ink} />
+          <Pressable
+            onPress={() => {
+              // A thread opened via a project enquiry (InquiryComposer does
+              // router.push('/messages/[id]') from /project/[id], which is
+              // outside the (tabs)/messages stack this screen normally lives
+              // in) can leave router.back() with no consistent history to
+              // pop — canGoBack() + an explicit inbox fallback guarantees
+              // this always lands somewhere real instead of silently
+              // failing.
+              if (router.canGoBack()) router.back();
+              else router.replace('/messages');
+            }}
+            hitSlop={8}
+          >
+            <ChevronLeft size={22} color={V.ink} strokeWidth={2.6} />
           </Pressable>
           {other ? (
             <>

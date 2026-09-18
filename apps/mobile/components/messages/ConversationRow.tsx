@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Image as ImageIcon } from 'lucide-react-native';
-import { violetColors as V } from '@fashub/design-tokens';
+import { violetColors as V, fontFamilies } from '@fashub/design-tokens';
 import { resolveMediaUrl } from '@fashub/api-client';
 import type { Conversation } from '@fashub/types';
 import { AvatarPresence } from './AvatarPresence';
@@ -11,7 +12,20 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 const INBOX_PRESENCE_INTERVAL_MS = 15000;
 
+/**
+ * Matches the nearest existing larger row type-scale already proven
+ * elsewhere (notifications.tsx's name/message rows, 13.5/12.5) — no exact
+ * @fashub/design-tokens typeScale step matches these sizes, so we reuse the
+ * proven values directly rather than inventing a new arbitrary size.
+ * Font family is routed through the real Inter tokens here (the row
+ * previously set no fontFamily at all, silently falling back to the OS
+ * default instead of Inter).
+ */
+const CONVERSATION_ROW_NAME_SIZE = 13.5;
+const CONVERSATION_ROW_PREVIEW_SIZE = 12.5;
+
 export function ConversationRow({ conversation, currentUserId, onPress }: { conversation: Conversation; currentUserId: string; onPress: () => void }) {
+  const router = useRouter();
   const other = conversation.participants.find((p) => p.userId !== currentUserId);
   const presence = useOnlineStatus(other?.userId, INBOX_PRESENCE_INTERVAL_MS);
   if (!other) return null;
@@ -35,16 +49,30 @@ export function ConversationRow({ conversation, currentUserId, onPress }: { conv
         borderLeftColor: V.primary,
       }}
     >
-      <AvatarPresence
-        uri={other.userAvatar}
-        name={other.userName}
-        size="md"
-        subscriptionTier={other.subscriptionTier}
-        onlineStatus={presence.isOnline ? 'online' : 'offline'}
-      />
+      {/* Nested Pressable — RN targets the innermost interactive element on
+          tap, so this overrides the row's own onPress for just this
+          sub-region without needing stopPropagation. */}
+      <Pressable onPress={() => router.push(`/profile/${other.userId}`)} hitSlop={4}>
+        <AvatarPresence
+          uri={other.userAvatar}
+          name={other.userName}
+          size="md"
+          subscriptionTier={other.subscriptionTier}
+          onlineStatus={presence.isOnline ? 'online' : 'offline'}
+        />
+      </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ fontWeight: unread ? '700' : '600', fontSize: 13, color: V.ink, flexShrink: 1 }} numberOfLines={1}>
+          <Text
+            style={{
+              fontFamily: unread ? fontFamilies.sansBold : fontFamilies.sansSemiBold,
+              fontSize: CONVERSATION_ROW_NAME_SIZE,
+              lineHeight: 18,
+              color: V.ink,
+              flexShrink: 1,
+            }}
+            numberOfLines={1}
+          >
             {other.userName}
           </Text>
           {verified ? <VerifiedBadge size="sm" /> : null}
@@ -52,12 +80,18 @@ export function ConversationRow({ conversation, currentUserId, onPress }: { conv
         {conversation.lastMessageThumbnail ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
             <ImageIcon size={11} color={V.inkFaint} />
-            <Text style={{ fontWeight: '400', fontSize: 11, color: V.inkFaint, flex: 1 }} numberOfLines={1}>
+            <Text
+              style={{ fontFamily: fontFamilies.sans, fontSize: CONVERSATION_ROW_PREVIEW_SIZE, lineHeight: 17, color: V.inkFaint, flex: 1 }}
+              numberOfLines={1}
+            >
               {conversation.lastMessage || 'Photo'}
             </Text>
           </View>
         ) : (
-          <Text style={{ fontWeight: '400', fontSize: 11, color: V.inkFaint, marginTop: 1 }} numberOfLines={1}>
+          <Text
+            style={{ fontFamily: fontFamilies.sans, fontSize: CONVERSATION_ROW_PREVIEW_SIZE, lineHeight: 17, color: V.inkFaint, marginTop: 1 }}
+            numberOfLines={1}
+          >
             {conversation.lastMessage || (isPro ? other.userRole : `${other.userRole.charAt(0).toUpperCase()}${other.userRole.slice(1)}`)}
           </Text>
         )}

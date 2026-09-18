@@ -14,6 +14,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { useCommentsThread } from '../../components/feed/useCommentsThread';
 import { CommentsList, CommentsComposer, CommentsMenuSheet } from '../../components/feed/CommentsThreadView';
 import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
+import { DEFAULT_ASPECT_RATIO, clampAspectRatio } from '../../lib/mediaAspectRatio';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -46,6 +47,10 @@ export default function PostDetailScreen() {
   const [error, setError] = useState('');
   const [mediaIndex, setMediaIndex] = useState(0);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  // Same clamped-ratio approach as the feed card (components/feed/PostCard.tsx)
+  // — this screen has its own separate gallery, not a reuse of that card, so
+  // it was still on the old fixed aspectRatio:1 until this fix.
+  const [mediaAspectRatio, setMediaAspectRatio] = useState(DEFAULT_ASPECT_RATIO);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -134,11 +139,20 @@ export default function PostDetailScreen() {
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
           <View style={{ position: 'relative' }}>
             {images.length > 0 ? (
-              <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#0c0c0c' }}>
+              <View style={{ width: '100%', aspectRatio: mediaAspectRatio, backgroundColor: '#0c0c0c' }}>
                 <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onMediaScroll}>
                   {images.map((uri, i) => (
                     <Pressable key={i} onPress={() => { setMediaIndex(i); setGalleryOpen(true); }} style={{ width: SCREEN_W, height: '100%' }}>
-                      <Image source={{ uri: resolveMediaUrl(uri) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                      <Image
+                        source={{ uri: resolveMediaUrl(uri) ?? undefined }}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="cover"
+                        onLoad={
+                          i === 0
+                            ? (e) => setMediaAspectRatio(clampAspectRatio(e.source.width / e.source.height))
+                            : undefined
+                        }
+                      />
                     </Pressable>
                   ))}
                 </ScrollView>

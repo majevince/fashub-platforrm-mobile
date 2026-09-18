@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Image } from 'expo-image';
 import { Tabs, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Briefcase, MessageCircle, Users, UserSearch, User } from 'lucide-react-native';
 import { colors } from '@fashub/design-tokens';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -16,17 +17,27 @@ const BADGE_POLL_MS = 30000;
 
 /**
  * Exported so the messages/[id] thread screen can restore this exact style
- * when it hides the tab bar on focus (see that screen for why) — kept as a
- * plain constant, not built from useTheme(), so it's usable outside a
- * component too.
+ * when it hides the tab bar on focus (see that screen for why). A function
+ * rather than a plain constant because the correct height/bottom padding
+ * depends on the device's safe-area inset (react-native-safe-area-context
+ * was already a dependency but — confirmed in Step 0 — `useSafeAreaInsets`
+ * was never actually called anywhere in the app; this tab bar used a fixed
+ * 64px height with no bottom inset at all, which Android's 3-button nav bar
+ * and gesture pill both sit on top of/overlap differently). The base 64/8
+ * values are unchanged — the inset is purely additive, so iOS (which
+ * reports 0 here since it uses its own home-indicator inset separately) is
+ * unaffected.
  */
-export const TAB_BAR_STYLE = {
-  backgroundColor: colors.ivory,
-  borderTopColor: colors.line,
-  borderTopWidth: 1,
-  height: 64,
-  paddingTop: 8,
-} as const;
+export function getTabBarStyle(bottomInset: number) {
+  return {
+    backgroundColor: colors.ivory,
+    borderTopColor: colors.line,
+    borderTopWidth: 1,
+    height: 64 + bottomInset,
+    paddingTop: 8,
+    paddingBottom: bottomInset,
+  } as const;
+}
 
 /**
  * Final order per the Network-page ticket: Feed, Project, Message, Network,
@@ -160,6 +171,7 @@ function useTabBadges() {
 export default function TabsLayout() {
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { hasUnreadMessages, hasUnreadProjectActivity } = useTabBadges();
   const dotFor: Partial<Record<keyof typeof TAB_META, boolean>> = {
     messages: hasUnreadMessages,
@@ -171,7 +183,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: TAB_BAR_STYLE,
+        tabBarStyle: getTabBarStyle(insets.bottom),
       }}
     >
       {(Object.keys(TAB_META) as (keyof typeof TAB_META)[]).map((name) => (

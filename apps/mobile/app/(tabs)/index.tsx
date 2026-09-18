@@ -17,9 +17,28 @@ import { ErrorState } from '../../components/ErrorState';
 import { EmptyState } from '../../components/EmptyState';
 import { CreatePostModal } from '../../components/feed/CreatePostModal';
 import { CreateStoryModal } from '../../components/feed/CreateStoryModal';
+import { CreateEventModal } from '../../components/feed/CreateEventModal';
+import { ComposerChoiceSheet } from '../../components/feed/ComposerChoiceSheet';
 import { StoryViewer } from '../../components/feed/StoryViewer';
 
 const PAGE_SIZE = 20;
+
+// Guards against duplicate FlatList keys: a locally-prepended repost (or an
+// overlapping page from onEndReached) can otherwise end up in `posts` twice
+// under the same id, since neither the pagination merge nor the optimistic
+// repost prepend previously checked for an existing entry before combining
+// arrays. Keeps the first occurrence, so a fresh local prepend wins over a
+// later duplicate arriving from a subsequent page fetch.
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push(item);
+  }
+  return result;
+}
 
 export default function FeedScreen() {
   const { user } = useAuth();
@@ -37,6 +56,8 @@ export default function FeedScreen() {
 
   const [createPostVisible, setCreatePostVisible] = useState(false);
   const [createStoryVisible, setCreateStoryVisible] = useState(false);
+  const [createEventVisible, setCreateEventVisible] = useState(false);
+  const [composerChoiceVisible, setComposerChoiceVisible] = useState(false);
   const [viewerGroup, setViewerGroup] = useState<StoryGroup | null>(null);
 
   const loadPosts = useCallback(
@@ -102,7 +123,7 @@ export default function FeedScreen() {
     setLoadingMore(true);
     try {
       const res = await getFeed(user.id, { filter, cursor: nextCursor, limit: PAGE_SIZE });
-      setPosts((prev) => [...(prev ?? []), ...res.posts]);
+      setPosts((prev) => dedupeById([...(prev ?? []), ...res.posts]));
       setNextCursor(res.nextCursor);
     } catch {
       // Pagination failures stay silent — the list the user already has keeps working; they can pull-to-refresh to retry.
@@ -135,7 +156,7 @@ export default function FeedScreen() {
         onPressAdd={() => setCreateStoryVisible(true)}
         onPressGroup={(group) => setViewerGroup(group)}
       />
-      <Composer onPress={() => setCreatePostVisible(true)} />
+      <Composer onPress={() => setComposerChoiceVisible(true)} />
       <FeedTabs active={filter} onChange={handleFilterChange} />
     </View>
   );
@@ -169,7 +190,7 @@ export default function FeedScreen() {
             <>
               <PostCard
                 post={item}
-                onReposted={(newPost) => setPosts((prev) => (prev ? [newPost, ...prev] : [newPost]))}
+                onReposted={(newPost) => setPosts((prev) => dedupeById([newPost, ...(prev ?? [])]))}
               />
               {index === 0 ? <SuggestedProsCard creators={suggestions.items} total={suggestions.total} /> : null}
             </>
@@ -183,6 +204,12 @@ export default function FeedScreen() {
         />
       )}
 
+      <ComposerChoiceSheet
+        visible={composerChoiceVisible}
+        onClose={() => setComposerChoiceVisible(false)}
+        onSelectPost={() => setCreatePostVisible(true)}
+        onSelectEvent={() => setCreateEventVisible(true)}
+      />
       <CreatePostModal
         visible={createPostVisible}
         onClose={() => setCreatePostVisible(false)}
@@ -192,6 +219,11 @@ export default function FeedScreen() {
         visible={createStoryVisible}
         onClose={() => setCreateStoryVisible(false)}
         onCreated={loadStories}
+      />
+      <CreateEventModal
+        visible={createEventVisible}
+        onClose={() => setCreateEventVisible(false)}
+        onCreated={() => { setCreateEventVisible(false); loadPosts(filter); }}
       />
       {viewerGroup ? (
         <StoryViewer

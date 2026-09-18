@@ -11,6 +11,7 @@ import { VerifiedBadge, isVerified } from '../VerifiedBadge';
 import { CommentsSheet } from './CommentsSheet';
 import { RepostModal, type RepostTarget } from './RepostModal';
 import { PostShareModal } from './PostShareModal';
+import { DEFAULT_ASPECT_RATIO, clampAspectRatio } from '../../lib/mediaAspectRatio';
 
 type Props = {
   post: FeedPost;
@@ -68,6 +69,13 @@ export function PostCard({ post, onReposted }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [mediaIndex, setMediaIndex] = useState(0);
+  // No width/height is stored anywhere in the post data (confirmed against
+  // the Prisma schema — `images` is a bare String[] of URLs), so the ratio
+  // is only knowable once the first photo actually loads on-device. Every
+  // slide in the carousel shares this one ratio rather than resizing per
+  // slide — matches web's own gallery, which also uses a single height for
+  // the whole track regardless of which slide is active.
+  const [mediaAspectRatio, setMediaAspectRatio] = useState(DEFAULT_ASPECT_RATIO);
   const [repostModalOpen, setRepostModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -223,7 +231,7 @@ export function PostCard({ post, onReposted }: Props) {
       {/* Media — tap opens the full post detail screen; the horizontal
           ScrollView inside still handles carousel swipes independently. */}
       {images.length > 0 && (
-        <Pressable onPress={openDetail} style={{ width: '100%', aspectRatio: 1.2, position: 'relative', backgroundColor: '#0b0b0c' }}>
+        <Pressable onPress={openDetail} style={{ width: '100%', aspectRatio: mediaAspectRatio, position: 'relative', backgroundColor: '#0b0b0c' }}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -231,7 +239,17 @@ export function PostCard({ post, onReposted }: Props) {
             onMomentumScrollEnd={onMediaScroll}
           >
             {images.map((uri, i) => (
-              <Image key={i} source={{ uri: resolveMediaUrl(uri) ?? undefined }} style={{ width: MEDIA_W, height: '100%' }} contentFit="cover" />
+              <Image
+                key={i}
+                source={{ uri: resolveMediaUrl(uri) ?? undefined }}
+                style={{ width: MEDIA_W, height: '100%' }}
+                contentFit="cover"
+                onLoad={
+                  i === 0
+                    ? (e) => setMediaAspectRatio(clampAspectRatio(e.source.width / e.source.height))
+                    : undefined
+                }
+              />
             ))}
           </ScrollView>
           {(post.price != null || post.priceRange) && (
@@ -274,10 +292,19 @@ export function PostCard({ post, onReposted }: Props) {
           </Pressable>
         ) : null}
         {post.description ? (
-          <Pressable onPress={() => setExpanded((v) => !v)} disabled={expanded}>
-            <Text style={{ fontSize: 13.5, fontWeight: '400', lineHeight: 19, color: V.inkSoft }} numberOfLines={expanded ? undefined : 3}>
+          // Tap the description itself to expand; tap again to collapse —
+          // no separate "Read more"/"Show less" label to tap, and "Read
+          // more" (shown only while collapsed) is the same color as the
+          // description text itself, not a distinct accent color.
+          <Pressable onPress={() => setExpanded((v) => !v)}>
+            <Text style={{ fontSize: 13.5, fontWeight: '400', lineHeight: 19, color: V.inkSoft }} numberOfLines={expanded ? undefined : 2}>
               {post.description}
             </Text>
+            {!expanded ? (
+              <Text style={{ fontSize: 13.5, fontWeight: '700', lineHeight: 19, color: V.inkSoft, marginTop: 2 }}>
+                Read more
+              </Text>
+            ) : null}
           </Pressable>
         ) : null}
         {(post.tags.length > 0 || post.materials.length > 0 || post.colors.length > 0 || post.sizes.length > 0) && (

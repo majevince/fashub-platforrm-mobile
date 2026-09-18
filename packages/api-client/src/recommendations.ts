@@ -30,3 +30,20 @@ export function getRecommendedProjects(
   if (opts.excludeIds?.length) params.set('excludeIds', opts.excludeIds.join(','));
   return apiGet(`/api/recommendations/projects?${params.toString()}`);
 }
+
+/**
+ * Matches GET /api/recommendations/projects?mode=detail exactly — the
+ * project-detail-page "Recommended Projects" widget (location + profile +
+ * browse-history blend, getProjectDetailRecommendations on the server).
+ * Distinct from getRecommendedProjects above (global "For You" feed,
+ * content/intent/collaborative/trending) — same endpoint, different mode.
+ */
+export function getProjectDetailRecommendations(
+  sourceProjectId: string,
+  opts: { userId?: string; limit?: number } = {}
+): Promise<RecommendedProjectsResponse> {
+  const params = new URLSearchParams({ mode: 'detail', sourceId: sourceProjectId });
+  if (opts.userId) params.set('userId', opts.userId);
+  if (opts.limit) params.set('limit', String(opts.limit));
+  return apiGet(`/api/recommendations/projects?${params.toString()}`);
+}

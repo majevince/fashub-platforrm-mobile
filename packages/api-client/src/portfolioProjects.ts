@@ -1,5 +1,24 @@
-import { apiGet, apiPost } from './http';
+import { apiGet, apiPost, apiPatch, apiDelete } from './http';
 import type { PortfolioProject, PortfolioProjectDetail } from '@fashub/types';
+
+/** Body shape accepted by both POST /api/portfolio/projects and PATCH /api/portfolio/projects/[projectId]. */
+export interface PortfolioProjectInput {
+  title: string;
+  summary?: string | null;
+  description?: string | null;
+  category?: string | null;
+  tags: string[];
+  clientType?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  shipsWorldwide?: boolean;
+  coverImage?: string | null;
+  images: string[];
+  visibility: 'public' | 'private' | 'featured';
+  isFeatured: boolean;
+  isPinned: boolean;
+}
 
 /** Matches GET /api/portfolio/projects exactly. */
 export function getPortfolioProjects(userId: string, role?: 'designer' | 'tailor', visibility: 'public' | 'all' = 'public'): Promise<{ projects: PortfolioProject[] }> {
@@ -37,4 +56,31 @@ export function shareProject(
   payload: { senderId: string; recipientIds: string[]; note?: string }
 ): Promise<{ success: boolean; sharedCount: number; failedCount: number }> {
   return apiPost(`/api/portfolio/projects/${projectId}/share`, payload);
+}
+
+/**
+ * Matches POST /api/portfolio/projects exactly — mobile's first authoring
+ * capability for Projects (previously view/save/share only, per the
+ * Projects Feature Audit). `videos`/`attachments`/`contentBlocks` aren't
+ * sent — mobile has no UI for them, same as web's own form.
+ */
+export function createPortfolioProject(
+  userId: string,
+  role: 'designer' | 'tailor',
+  input: PortfolioProjectInput
+): Promise<{ project: PortfolioProject }> {
+  return apiPost('/api/portfolio/projects', { userId, role, ...input });
+}
+
+/** Matches PATCH /api/portfolio/projects/[projectId] exactly. */
+export function updatePortfolioProject(
+  projectId: string,
+  input: Partial<PortfolioProjectInput>
+): Promise<{ project: PortfolioProject }> {
+  return apiPatch(`/api/portfolio/projects/${projectId}`, input);
+}
+
+/** Matches DELETE /api/portfolio/projects/[projectId] exactly. */
+export function deletePortfolioProject(projectId: string): Promise<{ success: boolean }> {
+  return apiDelete(`/api/portfolio/projects/${projectId}`);
 }

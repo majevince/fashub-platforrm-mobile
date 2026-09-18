@@ -19,6 +19,7 @@ export type EventCategory =
   | 'other';
 
 export type EventStatus = 'draft' | 'published' | 'cancelled' | 'postponed' | 'completed';
+export type EventVisibility = 'public' | 'invite_only';
 
 /**
  * Web's UI labels diverge from the Prisma enum names (components/events/
@@ -73,6 +74,7 @@ export interface EventListItem {
   shortDescription?: string | null;
   category: EventCategory;
   status: EventStatus;
+  visibility?: EventVisibility;
   startDate: string;
   endDate?: string | null;
   timezone: string;

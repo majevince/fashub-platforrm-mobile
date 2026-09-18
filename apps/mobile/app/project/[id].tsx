@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, Pressable, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChevronLeft, Star, Pin, Lock, Eye, Images as ImagesIcon, MessageCircle, FileText, CalendarClock, Bookmark, Share2 } from 'lucide-react-native';
+import { ChevronLeft, Star, Pin, Lock, Eye, Images as ImagesIcon, MessageCircle, FileText, CalendarClock, Bookmark, Share2, SquarePen, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import {
   getPortfolioProject,
+  deletePortfolioProject,
   trackProjectEngagement,
   toggleSavedItem,
   getSavedItemsStatus,
@@ -22,6 +23,9 @@ import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
 import { InquiryComposer, type InquiryType } from '../../components/portfolio/InquiryComposer';
 import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
 import { ProjectShareModal } from '../../components/portfolio/ProjectShareModal';
+import { ProjectLocationMapView } from '../../components/portfolio/ProjectLocationMapView';
+import { RecommendedProjectsRail } from '../../components/portfolio/RecommendedProjectsRail';
+import { SectionErrorBoundary } from '../../components/SectionErrorBoundary';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -79,6 +83,13 @@ export default function ProjectDetailScreen() {
   };
 
   useEffect(load, [id]);
+
+  // Re-fetches when this screen regains focus — specifically so returning
+  // from Edit shows the just-saved changes immediately, rather than the
+  // stale pre-edit data the initial mount-only effect above would leave in
+  // place (Expo Router keeps this screen instance alive under the edit
+  // screen on the stack, so it doesn't remount on its own).
+  useFocusEffect(useCallback(load, [id]));
 
   useEffect(() => {
     if (!id) return;
@@ -138,6 +149,29 @@ export default function ProjectDetailScreen() {
   const isOwner = project.creator?.userId === user.id;
   const creator = project.creator;
 
+  // Matches web's confirmation copy/behavior exactly (components/portfolio/
+  // ProjectCard.tsx's handleDelete: `confirm('Delete this project? This
+  // cannot be undone.')` then DELETE /api/portfolio/projects/[projectId]) —
+  // Alert.alert is the native equivalent of that confirm(), same
+  // destructive-style pattern already used for inventory-item delete.
+  const handleDelete = () => {
+    Alert.alert('Delete project', 'Delete this project? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePortfolioProject(project.id);
+            router.back();
+          } catch {
+            Alert.alert("Couldn't delete", 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
   const onImageScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setImageIdx(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W));
   };
@@ -193,31 +227,54 @@ export default function ProjectDetailScreen() {
             <ChevronLeft size={20} color="#fff" />
           </Pressable>
 
-          {/* Quick actions — same top-right placement as web's DiscoveryCard */}
+          {/* Quick actions — same top-right placement as web's DiscoveryCard.
+              Owner sees Edit/Delete instead of Save/Share (saving/sharing
+              your own project isn't a meaningful action). */}
           <View style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', gap: 8 }}>
-            <Pressable
-              onPress={handleToggleSave}
-              disabled={saveLoading}
-              hitSlop={8}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: saved ? colors.gold : 'rgba(20,18,16,0.5)',
-                opacity: saveLoading ? 0.6 : 1,
-              }}
-            >
-              <Bookmark size={17} color="#fff" fill={saved ? '#fff' : 'transparent'} />
-            </Pressable>
-            <Pressable
-              onPress={() => setShareOpen(true)}
-              hitSlop={8}
-              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Share2 size={16} color="#fff" />
-            </Pressable>
+            {isOwner ? (
+              <>
+                <Pressable
+                  onPress={() => router.push(`/project/${project.id}/edit`)}
+                  hitSlop={8}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <SquarePen size={16} color="#fff" />
+                </Pressable>
+                <Pressable
+                  onPress={handleDelete}
+                  hitSlop={8}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Trash2 size={16} color="#fff" />
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Pressable
+                  onPress={handleToggleSave}
+                  disabled={saveLoading}
+                  hitSlop={8}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: saved ? colors.gold : 'rgba(20,18,16,0.5)',
+                    opacity: saveLoading ? 0.6 : 1,
+                  }}
+                >
+                  <Bookmark size={17} color="#fff" fill={saved ? '#fff' : 'transparent'} />
+                </Pressable>
+                <Pressable
+                  onPress={() => setShareOpen(true)}
+                  hitSlop={8}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Share2 size={16} color="#fff" />
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
 
@@ -357,6 +414,36 @@ export default function ProjectDetailScreen() {
               </View>
             </View>
           ) : null}
+
+          <SectionErrorBoundary>
+            {/* Location + map — always rendered so projects created before
+                these fields existed show a clear "not set" fallback rather
+                than a silently missing section. */}
+            <View style={{ paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.line, gap: 8 }}>
+              <Text style={{ fontSize: 10.5, fontWeight: '700', letterSpacing: 0.4, color: colors.inkSoft, textTransform: 'uppercase' }}>Location</Text>
+              {project.city && project.latitude != null && project.longitude != null ? (
+                <View style={{ height: 130, borderRadius: 14, overflow: 'hidden' }}>
+                  <ProjectLocationMapView
+                    latitude={project.latitude}
+                    longitude={project.longitude}
+                    label={[project.city, project.state, project.country].filter(Boolean).join(', ')}
+                  />
+                </View>
+              ) : null}
+              <Text style={{ fontSize: 13, color: colors.ink }}>
+                {[project.city, project.state, project.country].filter(Boolean).join(', ') || 'Location not set'}
+              </Text>
+              {project.shipsWorldwide ? (
+                <Text style={{ fontSize: 11.5, color: colors.gold, fontWeight: '600' }}>
+                  Also available to clients outside this area — ships worldwide
+                </Text>
+              ) : null}
+            </View>
+          </SectionErrorBoundary>
+
+          <SectionErrorBoundary>
+            <RecommendedProjectsRail sourceProjectId={project.id} userId={user?.id} />
+          </SectionErrorBoundary>
         </View>
       </ScrollView>
 

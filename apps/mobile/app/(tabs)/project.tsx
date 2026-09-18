@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, FlatList, RefreshControl } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { Search, Eye, Star } from 'lucide-react-native';
+import { Search, Eye, Star, Plus } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import { discoverProjects, getRecommendedProjects, getNotifications, markNotificationRead, resolveMediaUrl } from '@fashub/api-client';
@@ -112,14 +112,15 @@ export default function ProjectDiscoveryScreen() {
     }, [user])
   );
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setProjects(null);
-      load(0, false);
-    }, 350);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  // Submit-only, not per-keystroke: the query only executes a real search
+  // request (discoverProjects) when the user presses Enter/Return, matching
+  // the locked spec exactly. The text field itself still updates live as
+  // they type (value={query}/onChangeText={setQuery} below) — only the
+  // network round-trip's timing changed, not the typing experience.
+  const runSearch = () => {
+    setProjects(null);
+    load(0, false);
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -142,6 +143,8 @@ export default function ProjectDiscoveryScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
+            onSubmitEditing={runSearch}
+            returnKeyType="search"
             placeholder="Search projects…"
             placeholderTextColor={colors.inkSoft}
             style={{ flex: 1, fontWeight: '400', fontSize: 13.5, color: colors.ink, padding: 0 }}
@@ -206,7 +209,7 @@ export default function ProjectDiscoveryScreen() {
         ) : null}
       </View>
     ),
-    [query, category, sort, colors, spacing, browseMode, hasActiveFilters]
+    [query, category, sort, colors, spacing, browseMode, hasActiveFilters, runSearch]
   );
 
   const renderCard = (item: DiscoverProject) => (
@@ -255,8 +258,16 @@ export default function ProjectDiscoveryScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }} edges={['top']}>
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: 10 }}>
         <Text style={{ ...typeScale.h1, fontFamily: undefined, fontWeight: '700', color: colors.ink }}>Projects</Text>
+        {(user?.role === 'designer' || user?.role === 'tailor') && (
+          <Pressable
+            onPress={() => router.push('/project/create')}
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Plus size={17} color={colors.ivory} />
+          </Pressable>
+        )}
       </View>
 
       {browseMode === 'for-you' && !hasActiveFilters ? (

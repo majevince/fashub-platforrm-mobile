@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, Pressable, Animated, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, View, Text, Pressable, Animated, StyleSheet, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
@@ -101,12 +101,6 @@ export function StoryViewer({ group, currentUserId, onClose, onViewed, onDeleted
     else videoPlayer.play();
   }, [anySheetOpen, story?.mediaType, videoPlayer]);
 
-  useEffect(() => {
-    if (!story?.track) return;
-    if (anySheetOpen) trackPlayer.pause();
-    else trackPlayer.play();
-  }, [anySheetOpen, story?.track, trackPlayer]);
-
   const pendingTrackSeekRef = useRef<string | null>(null);
 
   // Loads the attached track alongside the story and marks it pending a
@@ -123,13 +117,31 @@ export function StoryViewer({ group, currentUserId, onClose, onViewed, onDeleted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.id, story?.track?.id]);
 
+  // Single point of truth for "should the track be playing right now" —
+  // this used to be split across two effects: a play/pause effect keyed on
+  // `story?.track`, and this seek effect keyed on trackStatus. Since
+  // `story?.track` is a new object reference on every story change, the
+  // play/pause effect fired in the same commit as (but before) the load
+  // effect above — calling play() on the still-attached PREVIOUS track's
+  // position before replace()+seek() for the new one had landed, so
+  // navigating stories could briefly resume the wrong segment. Folding both
+  // concerns into one effect means there's no window where a play/pause
+  // decision can run against a track that's mid-load.
   useEffect(() => {
-    if (!story?.track || pendingTrackSeekRef.current !== story.track.id || !trackStatus.isLoaded) return;
-    pendingTrackSeekRef.current = null;
-    const start = story.trackTrimStart ?? 0;
-    trackPlayer.seekTo(start).then(() => trackPlayer.play());
+    if (!story?.track) return;
+    if (pendingTrackSeekRef.current === story.track.id) {
+      if (!trackStatus.isLoaded) return;
+      pendingTrackSeekRef.current = null;
+      const start = story.trackTrimStart ?? 0;
+      trackPlayer.seekTo(start).then(() => {
+        if (!anySheetOpen) trackPlayer.play();
+      });
+      return;
+    }
+    if (anySheetOpen) trackPlayer.pause();
+    else trackPlayer.play();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackStatus.isLoaded, trackStatus.duration, story?.track?.id]);
+  }, [anySheetOpen, trackStatus.isLoaded, story?.track?.id]);
 
   // Loop within the trimmed clip window; drive the lyric-ticker line off
   // real playback position, splitting the clip's duration evenly across
@@ -378,6 +390,23 @@ export function StoryViewer({ group, currentUserId, onClose, onViewed, onDeleted
               </View>
             )}
           </View>
+        ) : null}
+
+        {/* Jamendo attribution — required per their API Terms of Use (credit
+            the artist, credit Jamendo, backlink to the track's page)
+            wherever the track plays, independent of whatever decorative
+            sticker style/position the creator chose above. Fixed position
+            rather than tied to the sticker's placement so it's never
+            accidentally moved/hidden by sticker drag-repositioning. */}
+        {story.track?.licensingTier === 'jamendo' && story.track.externalUrl ? (
+          <Pressable
+            onPress={() => Linking.openURL(story.track!.externalUrl!)}
+            style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 20, backgroundColor: 'rgba(21,19,24,0.55)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }}
+          >
+            <Text style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.8)' }}>
+              ♪ {story.track.title} — {story.track.artist} · via Jamendo
+            </Text>
+          </Pressable>
         ) : null}
 
         {/* Tap zones — top-inset below the progress bars + header row entirely,

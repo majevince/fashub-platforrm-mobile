@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Receipt, CalendarClock, Tag, Wallet, Clock, ShieldCheck, ChevronRight, Package, Calendar as CalendarIcon, MapPin, FolderKanban } from 'lucide-react-native';
@@ -126,6 +127,7 @@ const INQUIRY_CONFIG = {
 } as const;
 
 export function InquiryCard({ data, isOwn, senderName }: { data: InquiryData; isOwn: boolean; senderName: string }) {
+  const router = useRouter();
   const config = INQUIRY_CONFIG[data.inquiryType] ?? INQUIRY_CONFIG.message;
   const hasProject = !!(data.projectTitle || data.projectCoverImage);
 
@@ -224,11 +226,14 @@ export function InquiryCard({ data, isOwn, senderName }: { data: InquiryData; is
           </View>
         </View>
 
-        {hasProject ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: V.canvas, borderWidth: 1, borderColor: V.line, borderRadius: 10, paddingVertical: 9 }}>
+        {hasProject && data.projectId ? (
+          <Pressable
+            onPress={() => router.push(`/project/${data.projectId}`)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: V.canvas, borderWidth: 1, borderColor: V.line, borderRadius: 10, paddingVertical: 9 }}
+          >
             <FolderKanban size={14} color={V.inkSoft} />
             <Text style={{ fontWeight: '600', fontSize: 12, color: V.inkSoft }}>View Project</Text>
-          </View>
+          </Pressable>
         ) : null}
       </View>
     </View>
@@ -452,8 +457,12 @@ export function EventMessageCard({ data, senderName }: { data: EventCardData; se
 // ─── ProjectMessageCard ───────────────────────────────────────────────────
 
 export function ProjectMessageCard({ data, senderName }: { data: ProjectCardData; senderName: string }) {
+  const router = useRouter();
   return (
-    <View style={{ width: 240, borderRadius: 14, overflow: 'hidden', backgroundColor: V.surface, borderWidth: 1, borderColor: V.line }}>
+    <Pressable
+      onPress={() => router.push(`/project/${data.id}`)}
+      style={{ width: 240, borderRadius: 14, overflow: 'hidden', backgroundColor: V.surface, borderWidth: 1, borderColor: V.line }}
+    >
       <View style={{ height: 100, backgroundColor: V.canvas }}>
         {data.coverImage ? (
           <Image source={{ uri: resolveMediaUrl(data.coverImage) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
@@ -477,7 +486,7 @@ export function ProjectMessageCard({ data, senderName }: { data: ProjectCardData
         ) : null}
         <Text style={{ fontWeight: '400', fontSize: 9.5, color: V.inkFaint, marginTop: 4 }}>From {senderName}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

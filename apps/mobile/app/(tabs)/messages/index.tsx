@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { getConversations } from '@fashub/api-client';
 import type { Conversation } from '@fashub/types';
 import { ConversationRow } from '../../../components/messages/ConversationRow';
+import { NewMessageModal } from '../../../components/messages/NewMessageModal';
 import { LoadingState } from '../../../components/LoadingState';
 import { ErrorState } from '../../../components/ErrorState';
 import { EmptyState } from '../../../components/EmptyState';
@@ -28,6 +29,7 @@ export default function MessagesInboxScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<FilterTab>('all');
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
 
   useOnlineHeartbeat(user?.id);
 
@@ -88,11 +90,21 @@ export default function MessagesInboxScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: V.surface }} edges={['top']}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: V.line }}>
         <Text style={{ fontWeight: '900', fontSize: 20, color: V.ink }}>Messages</Text>
-        {/* Web's "new message" compose flow needs a user-picker screen that
-            doesn't exist anywhere in this app yet — out of scope for this
-            ticket, so this icon is present (visual parity) but inert. */}
-        <SquarePen size={19} color={V.primary} />
+        <Pressable onPress={() => setNewMessageOpen(true)} hitSlop={8}>
+          <SquarePen size={19} color={V.primary} />
+        </Pressable>
       </View>
+
+      <NewMessageModal
+        visible={newMessageOpen}
+        onClose={() => setNewMessageOpen(false)}
+        currentUserId={user.id}
+        onConversationStarted={(conversationId) => {
+          setNewMessageOpen(false);
+          load();
+          router.push(`/messages/${conversationId}`);
+        }}
+      />
 
       <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: V.canvas, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>

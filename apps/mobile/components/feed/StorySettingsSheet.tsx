@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { X, Check } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { getStorySettings, updateStorySettings, addCloseFriend, removeCloseFriend, toggleHiddenFromUser, resolveMediaUrl, ApiError } from '@fashub/api-client';
-import type { StoryPrivacySettings } from '@fashub/types';
+import type { StoryPrivacySettings, StoryAudience } from '@fashub/types';
 import { LoadingState } from '../LoadingState';
 import { ErrorState } from '../ErrorState';
 
@@ -17,6 +17,12 @@ const REPLY_OPTIONS: { value: 'everyone' | 'followers' | 'off'; label: string; h
   { value: 'everyone', label: 'Everyone', hint: 'Any FaSHub member can reply or react' },
   { value: 'followers', label: 'People you follow', hint: 'Only accounts you follow back' },
   { value: 'off', label: 'Off', hint: 'No one can reply to this story' },
+];
+
+const AUDIENCE_OPTIONS: { value: StoryAudience; label: string; hint: string }[] = [
+  { value: 'followers_and_following', label: 'Followers and following', hint: 'Accounts that follow you, or that you follow — either way (default)' },
+  { value: 'followers_only', label: 'Followers only', hint: 'Only accounts that follow you' },
+  { value: 'following_only', label: 'Following only', hint: 'Only accounts you follow' },
 ];
 
 /** Matches web's StorySettingsSheet exactly — same 4 sections, same copy, same ordering. */
@@ -40,6 +46,11 @@ export function StorySettingsSheet({ visible, onClose }: Props) {
   const setReplies = async (allowReplies: 'everyone' | 'followers' | 'off') => {
     setSettings((s) => (s ? { ...s, allowReplies } : s));
     await updateStorySettings({ allowReplies }).catch(() => {});
+  };
+
+  const setAudience = async (audience: StoryAudience) => {
+    setSettings((s) => (s ? { ...s, audience } : s));
+    await updateStorySettings({ audience }).catch(() => {});
   };
 
   const toggleCloseFriendsOnly = async () => {
@@ -75,6 +86,35 @@ export function StorySettingsSheet({ visible, onClose }: Props) {
             <LoadingState />
           ) : (
             <ScrollView>
+              <View style={{ padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 4 }}>
+                <Text style={{ ...typeScale.label, fontFamily: undefined, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, color: colors.inkSoft, marginBottom: 4 }}>WHO CAN SEE YOUR STORY</Text>
+                {AUDIENCE_OPTIONS.map((o) => {
+                  const active = settings.audience === o.value;
+                  return (
+                    <Pressable key={o.value} onPress={() => setAudience(o.value)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8 }}>
+                      <View
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 9,
+                          borderWidth: 1.5,
+                          borderColor: active ? colors.gold : colors.line,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginTop: 2,
+                        }}
+                      >
+                        {active ? <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: colors.gold }} /> : null}
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.ink }}>{o.label}</Text>
+                        <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.inkSoft }}>{o.hint}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               <View style={{ padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 4 }}>
                 <Text style={{ ...typeScale.label, fontFamily: undefined, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, color: colors.inkSoft, marginBottom: 4 }}>ALLOW REPLIES &amp; REACTIONS</Text>
                 {REPLY_OPTIONS.map((o) => {

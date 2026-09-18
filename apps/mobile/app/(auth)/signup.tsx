@@ -81,7 +81,7 @@ export default function SignupScreen() {
         role: role as Extract<UserRole, 'individual' | 'designer' | 'tailor'>,
         profileData: { bio: `${role} on FaSHub` },
       });
-      router.replace('/');
+      router.replace('/(auth)/login?registered=true');
     } catch (err) {
       setErrors({ submit: err instanceof ApiError ? err.message : "Couldn't create your account. Try again." });
     } finally {

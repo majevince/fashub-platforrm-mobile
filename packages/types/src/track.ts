@@ -14,7 +14,12 @@ export interface Track {
   favorited?: boolean;
   /** LRC-lite lyric lines — only present on the track embedded in a Story response (GET /api/stories), not in the search catalog (GET /api/tracks), which omits it. */
   lyrics?: string | null;
+  /** Required attribution backlink for Jamendo-sourced tracks (licensingTier === 'jamendo') — Jamendo's ToS requires crediting the artist, crediting Jamendo, and backlinking to this URL wherever the track plays. */
+  externalUrl?: string | null;
 }
+
+/** Matches GET /api/tracks exactly when a search term is present — Jamendo results are merged into the same `tracks` array (id-prefixed `jamendo:<externalId>`, unpersisted until selected), so this only ever signals a Jamendo-side degradation, not a hard failure of the whole search. */
+export type JamendoSearchError = 'not_configured' | 'rate_limited' | 'unavailable' | null;
 
 /** Real Track.moods values with catalog usage — matches web's MusicPicker MOOD_TABS minus 'trending' (a sort key, not a mood). */
 export const TRACK_MOODS = ['runway', 'studio', 'street-style', 'chill', 'upbeat'] as const;

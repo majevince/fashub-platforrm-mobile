@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, View, Text, ScrollView, Pressable, Keyboard, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X, ImagePlus } from 'lucide-react-native';
@@ -31,6 +31,22 @@ export function CreatePostModal({ visible, onClose, onCreated }: Props) {
   const [price, setPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Keyboard events, not KeyboardAvoidingView — this Modal renders in its
+  // own native window on Android, which KeyboardAvoidingView's automatic
+  // resize/pan behavior doesn't reliably reach (same root cause already
+  // documented and fixed in components/feed/CommentsSheet.tsx).
+  React.useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const reset = () => {
     setImages([]);
@@ -97,7 +113,7 @@ export function CreatePostModal({ visible, onClose, onCreated }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.ivory }}>
+      <View style={{ flex: 1, backgroundColor: colors.ivory, marginBottom: keyboardHeight }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }}>
           <Pressable onPress={handleClose} hitSlop={8}>
             <X size={22} color={colors.ink} />
@@ -165,7 +181,7 @@ export function CreatePostModal({ visible, onClose, onCreated }: Props) {
             {submitting ? 'Posting…' : 'Post'}
           </Button>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

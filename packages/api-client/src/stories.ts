@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './http';
-import type { StoryGroup, CreateStoryPayload, StoryPrivacySettings, StoryViewerEntry } from '@fashub/types';
+import type { StoryGroup, CreateStoryPayload, StoryPrivacySettings, StoryAudience, StoryViewerEntry } from '@fashub/types';
 
 /**
  * Matches GET /api/stories exactly — unlike /api/feed and /api/posts/*,
@@ -48,8 +48,8 @@ export function getStorySettings(): Promise<StoryPrivacySettings> {
   return apiGet('/api/stories/settings');
 }
 
-/** Matches PATCH /api/stories/settings exactly — allowReplies and/or closeFriendsOnly, either may be omitted. */
-export function updateStorySettings(patch: { allowReplies?: 'everyone' | 'followers' | 'off'; closeFriendsOnly?: boolean }): Promise<{ allowReplies: string; closeFriendsOnly: boolean }> {
+/** Matches PATCH /api/stories/settings exactly — allowReplies, closeFriendsOnly, and/or audience, any subset may be omitted. */
+export function updateStorySettings(patch: { allowReplies?: 'everyone' | 'followers' | 'off'; closeFriendsOnly?: boolean; audience?: StoryAudience }): Promise<{ allowReplies: string; closeFriendsOnly: boolean; audience: string }> {
   return apiPatch('/api/stories/settings', patch);
 }
 

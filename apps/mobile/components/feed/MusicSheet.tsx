@@ -4,8 +4,8 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { X, Search, Heart, Play, Pause, Music2, Disc3, Type } from 'lucide-react-native';
-import { searchTracks, getFavoriteTracks, getRecentTracks, getSoundPacks, toggleTrackFavorite, resolveMediaUrl, ApiError } from '@fashub/api-client';
-import { TRACK_MOOD_TABS, type Track, type SoundPack, type TrackMoodTab } from '@fashub/types';
+import { searchTracks, materializeJamendoTrack, getFavoriteTracks, getRecentTracks, getSoundPacks, toggleTrackFavorite, resolveMediaUrl, ApiError } from '@fashub/api-client';
+import { TRACK_MOOD_TABS, type Track, type SoundPack, type TrackMoodTab, type JamendoSearchError } from '@fashub/types';
 import { LoadingState } from '../LoadingState';
 import { ErrorState } from '../ErrorState';
 
@@ -117,6 +117,8 @@ export function MusicSheet({
   const [runwayPacks, setRunwayPacks] = useState<SoundPack[]>([]);
   const [brandPacks, setBrandPacks] = useState<SoundPack[]>([]);
   const [error, setError] = useState('');
+  const [jamendoError, setJamendoError] = useState<JamendoSearchError>(null);
+  const [materializing, setMaterializing] = useState(false);
 
   const previewPlayer = useAudioPlayer(null);
   const previewStatus = useAudioPlayerStatus(previewPlayer);
@@ -139,7 +141,7 @@ export function MusicSheet({
       mood: activeMood === 'trending' ? undefined : activeMood,
       sort: activeMood === 'trending' ? 'trending' : undefined,
     })
-      .then((res) => setTracks(res.tracks))
+      .then((res) => { setTracks(res.tracks); setJamendoError(res.jamendoError ?? null); })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Couldn't load tracks."));
   };
 
@@ -198,10 +200,34 @@ export function MusicSheet({
     }
   };
 
-  const handleSelectTrack = (track: Track) => {
+  // Jamendo search results are unpersisted (id: `jamendo:<externalId>`) until
+  // actually selected — materialize a real Track row now, re-fetched from
+  // Jamendo server-side rather than trusting this client-held metadata, so
+  // it can flow through the exact same trim/persist/playback path as any
+  // library track from here on. Mirrors web's MusicPicker.tsx exactly.
+  const isJamendoResult = (track: Track) => track.id.startsWith('jamendo:');
+
+  const handleSelectTrack = async (track: Track) => {
     previewPlayer.pause();
     setPlayingId(null);
-    onSelectTrack(track);
+
+    let resolvedTrack = track;
+    if (isJamendoResult(track)) {
+      setMaterializing(true);
+      setJamendoError(null);
+      try {
+        const externalId = track.id.slice('jamendo:'.length);
+        const res = await materializeJamendoTrack(externalId);
+        resolvedTrack = res.track;
+      } catch (err) {
+        setJamendoError(err instanceof ApiError && err.status === 429 ? 'rate_limited' : 'unavailable');
+        setMaterializing(false);
+        return;
+      }
+      setMaterializing(false);
+    }
+
+    onSelectTrack(resolvedTrack);
     setTab('trim');
   };
 
@@ -213,8 +239,11 @@ export function MusicSheet({
   const showCuratedSections = !query.trim() && activeMood === 'trending';
 
   const renderTrack = (track: Track) => (
-    <View key={track.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 20 }}>
-      <Pressable onPress={() => handleSelectTrack(track)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+    <View key={track.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 20, opacity: materializing ? 0.6 : 1 }}>
+      <Pressable
+        onPress={() => !materializing && handleSelectTrack(track)}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}
+      >
         <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: V.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           {track.coverArtUrl ? (
             <Image source={{ uri: resolveMediaUrl(track.coverArtUrl) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
@@ -230,7 +259,11 @@ export function MusicSheet({
             <Text style={{ fontSize: 11, fontWeight: '400', color: V.inkFaint }} numberOfLines={1}>
               {track.artist} · {formatDuration(track.durationSeconds)}
             </Text>
-            {track.licensingTier === 'story_only' ? (
+            {track.licensingTier === 'jamendo' ? (
+              <Text style={{ fontSize: 8, fontWeight: '500', color: V.primary, backgroundColor: V.primarySoft, borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1, textTransform: 'uppercase' }}>
+                Jamendo
+              </Text>
+            ) : track.licensingTier === 'story_only' ? (
               <Text style={{ fontSize: 8, fontWeight: '500', color: V.inkFaint, backgroundColor: V.canvas, borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1, textTransform: 'uppercase' }}>
                 Story only
               </Text>
@@ -238,9 +271,11 @@ export function MusicSheet({
           </View>
         </View>
       </Pressable>
-      <Pressable onPress={() => handleFavorite(track.id)} hitSlop={8} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
-        <Heart size={14} color={track.favorited ? V.primary : V.inkFaint} fill={track.favorited ? V.primary : 'transparent'} />
-      </Pressable>
+      {!isJamendoResult(track) && (
+        <Pressable onPress={() => handleFavorite(track.id)} hitSlop={8} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+          <Heart size={14} color={track.favorited ? V.primary : V.inkFaint} fill={track.favorited ? V.primary : 'transparent'} />
+        </Pressable>
+      )}
       <Pressable
         onPress={() => togglePreview(track)}
         style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: V.canvas, borderWidth: 1, borderColor: V.line, alignItems: 'center', justifyContent: 'center' }}
@@ -283,6 +318,19 @@ export function MusicSheet({
                 style={{ flex: 1, fontSize: 13.5, fontWeight: '400', color: V.ink, padding: 0 }}
               />
             </View>
+            {query.trim() && jamendoError && jamendoError !== 'not_configured' ? (
+              <Pressable
+                onPress={() => { setJamendoError(null); load(); }}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, backgroundColor: '#FEF2F2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 10 }}
+              >
+                <Text style={{ fontSize: 11, color: '#B91C1C', flex: 1 }}>
+                  {jamendoError === 'rate_limited'
+                    ? "Jamendo search is temporarily rate-limited — FaSHub's own catalog still works."
+                    : "Jamendo search is unavailable right now — FaSHub's own catalog still works."}
+                </Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#B91C1C' }}>Retry</Text>
+              </Pressable>
+            ) : null}
             <FlatList
               horizontal
               showsHorizontalScrollIndicator={false}

@@ -68,10 +68,14 @@ export interface StoryPrivacyPerson {
   isHidden: boolean;
 }
 
+export type StoryAudience = 'followers_and_following' | 'followers_only' | 'following_only';
+
 export interface StoryPrivacySettings {
   allowReplies: 'everyone' | 'followers' | 'off';
   closeFriendsOnly: boolean;
   hiddenFromUserIds: string[];
+  /** Who can VIEW the story at all — independent of allowReplies (who can react/reply once they can already see it). Default 'followers_and_following' is an OR of both directions, not mutual. */
+  audience: StoryAudience;
   people: StoryPrivacyPerson[];
 }
 

@@ -44,7 +44,7 @@ export {
   getStoryViewers,
   reportStory,
 } from './stories';
-export { searchTracks, getFavoriteTracks, getRecentTracks, toggleTrackFavorite, getSoundPacks } from './tracks';
+export { searchTracks, materializeJamendoTrack, getFavoriteTracks, getRecentTracks, toggleTrackFavorite, getSoundPacks } from './tracks';
 export { findOrCreateConversation, sendStoryReplyMessage } from './conversations';
 export {
   getConversations,
@@ -75,16 +75,18 @@ export {
 export { getGlobalFabrics, getMyFabrics, getFabric, createFabric, updateFabric, deleteFabric } from './fabricInventory';
 export { getWorkflows, getWorkflow, advanceWorkflowStage, approveWorkflowDelivery, requestWorkflowRevision, cancelWorkflow } from './workflows';
 export { getSavedItems, toggleSavedItem, getSavedItemsStatus } from './savedItems';
-export { getEvents, getEvent, attendEvent, unattendEvent, getRecommendedEvents, getRelatedEvents } from './events';
+export { getEvents, getEvent, attendEvent, unattendEvent, getRecommendedEvents, getRelatedEvents, createEvent } from './events';
+export type { CreateEventInput } from './events';
 export { discoverProjects } from './discoverProjects';
 export { getNetworkProfiles } from './network';
-export { getPortfolioProjects, getPortfolioProject, trackProjectView, shareProject } from './portfolioProjects';
+export { getPortfolioProjects, getPortfolioProject, trackProjectView, shareProject, createPortfolioProject, updatePortfolioProject, deletePortfolioProject } from './portfolioProjects';
+export type { PortfolioProjectInput } from './portfolioProjects';
 export { getReviews, createReview } from './reviews';
-export { getSuggestedCreators, getRecommendedProjects } from './recommendations';
+export { getSuggestedCreators, getRecommendedProjects, getProjectDetailRecommendations } from './recommendations';
 export { trackProjectEngagement } from './projectEngagement';
 export { getTrending } from './trending';
-export { followUser, searchUsers } from './users';
-export type { UserSearchResult } from './users';
+export { followUser, searchUsers, searchUsersForMessaging } from './users';
+export type { UserSearchResult, MessagingUserSearchResult, MessagingUserSearchResponse } from './users';
 export { uploadFiles } from './upload';
 export type { UploadableFile } from './upload';
 export { matchProfessionals } from './matching';

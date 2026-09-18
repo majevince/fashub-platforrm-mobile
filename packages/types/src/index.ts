@@ -46,6 +46,7 @@ export type {
   CreateStoryPayload,
   StoryPrivacyPerson,
   StoryPrivacySettings,
+  StoryAudience,
   StoryViewerEntry,
 } from './story';
 export type { StoryReplyAttachmentData, Conversation, ConversationParticipant } from './conversation';
@@ -64,7 +65,7 @@ export type {
 } from './message';
 export type { SuggestedCreator } from './recommendation';
 export type { TrendingTag } from './trending';
-export type { Track, TrackMood, TrackMoodTab, SoundPack } from './track';
+export type { Track, TrackMood, TrackMoodTab, SoundPack, JamendoSearchError } from './track';
 export { TRACK_MOODS, TRACK_MOOD_TABS } from './track';
 export type {
   LocationFields,

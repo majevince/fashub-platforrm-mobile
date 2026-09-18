@@ -1,5 +1,5 @@
-import React from 'react';
-import { Modal, View, Text, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Text, Pressable, Keyboard, Platform } from 'react-native';
 import { X } from 'lucide-react-native';
 import { violetColors as V } from '@fashub/design-tokens';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -27,47 +27,66 @@ type Props = {
  * This is a thin Modal wrapper — all state/behavior lives in
  * useCommentsThread(), shared with the full-screen post detail view
  * (app/post/[id].tsx) so there's exactly one comment implementation.
+ *
+ * Keyboard handling is driven by explicit Keyboard events rather than
+ * KeyboardAvoidingView: React Native's Modal renders in its own native
+ * window on Android, which KeyboardAvoidingView's automatic
+ * resize/pan behavior doesn't reliably reach — the composer stayed
+ * hidden behind the keyboard regardless of `behavior`. Shifting the
+ * whole sheet up by the keyboard's own reported height sidesteps that
+ * entirely.
  */
 export function CommentsSheet({ postId, postAuthorId, visible, onClose, onCommentAdded }: Props) {
   const { typeScale, spacing } = useTheme();
   const thread = useCommentsThread(postId, postAuthorId, onCommentAdded, visible);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(27,21,35,0.4)' }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View
+          style={{
+            backgroundColor: V.surface,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            maxHeight: '80%',
+            paddingTop: spacing.md,
+            marginBottom: keyboardHeight,
+          }}
+        >
           <View
             style={{
-              backgroundColor: V.surface,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              maxHeight: '80%',
-              paddingTop: spacing.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: spacing.lg,
+              paddingBottom: spacing.sm,
+              borderBottomWidth: 1,
+              borderBottomColor: V.line,
             }}
           >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingHorizontal: spacing.lg,
-                paddingBottom: spacing.sm,
-                borderBottomWidth: 1,
-                borderBottomColor: V.line,
-              }}
-            >
-              <Text style={{ ...typeScale.h2, fontFamily: undefined, fontWeight: '700', color: V.ink }}>
-                Comments{thread.comments && thread.comments.length > 0 ? ` (${thread.comments.length})` : ''}
-              </Text>
-              <Pressable onPress={onClose} hitSlop={8}>
-                <X size={20} color={V.inkFaint} />
-              </Pressable>
-            </View>
-
-            <CommentsList thread={thread} scrollable />
-            <CommentsComposer thread={thread} />
+            <Text style={{ ...typeScale.h2, fontFamily: undefined, fontWeight: '700', color: V.ink }}>
+              Comments{thread.comments && thread.comments.length > 0 ? ` (${thread.comments.length})` : ''}
+            </Text>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <X size={20} color={V.inkFaint} />
+            </Pressable>
           </View>
-        </KeyboardAvoidingView>
+
+          <CommentsList thread={thread} scrollable />
+          <CommentsComposer thread={thread} />
+        </View>
       </View>
 
       {thread.menuFor && <CommentsMenuSheet actions={thread.menuActions} onClose={thread.closeMenu} />}

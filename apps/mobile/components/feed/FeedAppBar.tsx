@@ -54,10 +54,14 @@ export function FeedAppBar({ onRefresh }: Props) {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={() => setDrawerOpen(true)} hitSlop={8}>
-            <Menu size={22} color={V.ink} strokeWidth={1.8} />
+            <Menu size={22} color={V.ink} strokeWidth={2.6} />
           </Pressable>
           <Image
-            source={require('../../assets/brand/logo-wordmark.png')}
+            // Bolder-stroke variant (alpha-dilated from the same source
+            // wordmark) — scoped to this header specifically, not the
+            // shared logo-wordmark.png AuthLogo.tsx also uses for
+            // login/signup, per this ticket's own scoping.
+            source={require('../../assets/brand/logo-wordmark-bold.png')}
             style={{ width: LOGO_HEIGHT * LOGO_ASPECT_RATIO, height: LOGO_HEIGHT }}
             contentFit="contain"
             accessibilityLabel="FaSHub"

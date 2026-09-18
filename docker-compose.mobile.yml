@@ -86,6 +86,30 @@ services:
     networks:
       - mobile-lb-network
 
+  cloudflared-mobile:
+    image: cloudflare/cloudflared:latest
+    container_name: fashub-mobile-cloudflared
+    # Replaces the host-level cloudflared-mobile.service (systemd unit) —
+    # that unit had two compounding problems: (1) its TimeoutStartSec=15
+    # was shorter than cloudflared's own connection-retry backoff, so
+    # systemd killed the process mid-retry on every single start, and
+    # (2) more fundamentally, its baked-in token's secret was being
+    # rejected server-side ("Unauthorized: Invalid tunnel secret",
+    # confirmed recurring for 5+ days / 19,644 restarts) — no amount of
+    # retry time could have fixed that half. Docker's `restart:
+    # unless-stopped` has no startup-timeout-kills-process behavior at
+    # all, so problem (1) doesn't exist here even as a latent risk.
+    # host networking (not the mobile-lb-network bridge) so this
+    # container sees the exact same network path to the tunnel's
+    # dashboard-configured origin as the systemd process it replaces —
+    # the ingress target lives in Cloudflare's Zero Trust dashboard for
+    # this token, not in local compose config, and wasn't observable
+    # from logs (the old process never got past tunnel registration to
+    # log an origin-dial attempt).
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_MOBILE_TUNNEL_TOKEN}
+    restart: unless-stopped
+
 # Separate named volumes per container (not anonymous /app/node_modules)
 # so each Metro instance keeps its own install rather than one container's
 # node_modules colliding with or overwriting the other's.

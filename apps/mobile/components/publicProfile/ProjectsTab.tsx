@@ -1,24 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
-import { X, FolderKanban } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { X, FolderKanban, Plus } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { getPortfolioProjects, trackProjectView, resolveMediaUrl } from '@fashub/api-client';
 import type { PortfolioProject } from '@fashub/types';
 import { LoadingState } from '../../components/LoadingState';
 import { EmptyNotice } from './PortfolioTab';
 
-export function ProjectsTab({ userId, role, showProjects }: { userId: string; role: 'designer' | 'tailor'; showProjects: boolean }) {
+export function ProjectsTab({ userId, role, showProjects, isOwner }: { userId: string; role: 'designer' | 'tailor'; showProjects: boolean; isOwner?: boolean }) {
   const { colors, typeScale, radius } = useTheme();
+  const router = useRouter();
   const [projects, setProjects] = useState<PortfolioProject[] | null>(null);
   const [selected, setSelected] = useState<PortfolioProject | null>(null);
 
   useEffect(() => {
     if (!showProjects) return;
-    getPortfolioProjects(userId, role)
+    getPortfolioProjects(userId, role, isOwner ? 'all' : 'public')
       .then((res) => setProjects(res.projects))
       .catch(() => setProjects([]));
-  }, [userId, role, showProjects]);
+  }, [userId, role, showProjects, isOwner]);
+
+  const createButton = isOwner ? (
+    <Pressable
+      onPress={() => router.push('/project/create')}
+      style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', marginBottom: 10 }}
+    >
+      <Plus size={17} color={colors.ivory} />
+    </Pressable>
+  ) : null;
 
   if (!showProjects) {
     return <EmptyNotice icon={FolderKanban} title="Projects are Private" message="This user has chosen to keep their projects private." />;
@@ -27,11 +38,21 @@ export function ProjectsTab({ userId, role, showProjects }: { userId: string; ro
   if (projects === null) return <LoadingState />;
 
   if (projects.length === 0) {
-    return <EmptyNotice icon={FolderKanban} title="No Projects Yet" message="This user hasn't published any projects." />;
+    return (
+      <View>
+        {createButton}
+        <EmptyNotice
+          icon={FolderKanban}
+          title="No Projects Yet"
+          message={isOwner ? "Publish your first project to show up here." : "This user hasn't published any projects."}
+        />
+      </View>
+    );
   }
 
   return (
     <View style={{ gap: 10 }}>
+      {createButton}
       {projects.map((p) => (
         <Pressable
           key={p.id}
@@ -67,6 +88,14 @@ export function ProjectsTab({ userId, role, showProjects }: { userId: string; ro
                 <Pressable onPress={() => setSelected(null)} style={{ position: 'absolute', top: 44, left: 16, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}>
                   <X size={18} color="#fff" />
                 </Pressable>
+                {isOwner ? (
+                  <Pressable
+                    onPress={() => { const id = selected.id; setSelected(null); router.push(`/project/${id}/edit`); }}
+                    style={{ position: 'absolute', top: 44, right: 16, backgroundColor: 'rgba(20,18,16,0.5)', borderRadius: 17, paddingHorizontal: 14, paddingVertical: 8 }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '700' }}>Edit</Text>
+                  </Pressable>
+                ) : null}
               </View>
               <View style={{ padding: 20, gap: 12 }}>
                 <Text style={{ ...typeScale.h1, fontFamily: undefined, fontWeight: '700', color: colors.ink }}>{selected.title}</Text>

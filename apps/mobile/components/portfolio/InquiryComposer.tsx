@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Modal, ActivityIndicator, Alert, Keyboard, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { X, MessageCircle, FileText, CalendarClock, CheckCircle2 } from 'lucide-react-native';
@@ -85,6 +85,23 @@ export function InquiryComposer({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ conversationId: string } | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Keyboard events, not KeyboardAvoidingView — this Modal renders in its
+  // own native window on Android, which KeyboardAvoidingView's automatic
+  // resize/pan behavior doesn't reliably reach (same root cause already
+  // documented and fixed in components/feed/CommentsSheet.tsx; reusing that
+  // exact technique here rather than a second approach).
+  React.useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Reset to a clean form each time the sheet is (re)opened for a possibly
   // different type/project — mirrors web's fresh-mount-per-open behavior.
@@ -144,7 +161,7 @@ export function InquiryComposer({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20,18,16,0.55)' }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ maxHeight: '92%' }}>
+        <View style={{ maxHeight: '92%', marginBottom: keyboardHeight }}>
           <View style={{ backgroundColor: colors.ivory, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '100%' }}>
 
             {success ? (
@@ -305,7 +322,7 @@ export function InquiryComposer({
               </>
             )}
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );

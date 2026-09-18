@@ -266,7 +266,7 @@ export default function PublicProfileScreen() {
         <View style={{ padding: spacing.lg }}>
           {tab === 'about' ? <AboutTab profile={profile} professionalDetail={professionalDetail} isOwner={isOwner} /> : null}
           {tab === 'portfolio' ? <PortfolioTab professionalDetail={professionalDetail} showPortfolio={privacy?.showPortfolio !== false || isOwner} /> : null}
-          {tab === 'projects' ? <ProjectsTab userId={profile.id} role={profile.role as 'designer' | 'tailor'} showProjects={privacy?.showProjects !== false || isOwner} /> : null}
+          {tab === 'projects' ? <ProjectsTab userId={profile.id} role={profile.role as 'designer' | 'tailor'} showProjects={privacy?.showProjects !== false || isOwner} isOwner={isOwner} /> : null}
           {tab === 'services' ? <ServicesTab professionalDetail={professionalDetail} /> : null}
           {tab === 'reviews' ? (
             <ReviewsTab

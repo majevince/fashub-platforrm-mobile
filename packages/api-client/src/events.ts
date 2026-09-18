@@ -1,6 +1,38 @@
 import { apiGet, apiPost, apiDelete } from './http';
 import type { EventsListResponse, EventDetail, RecommendedEventsResponse, RelatedEventsResponse } from '@fashub/types';
 
+/** Body shape accepted by POST /api/events — same fields web's CreateEventForm sends. */
+export interface CreateEventInput {
+  title: string;
+  description?: string;
+  shortDescription?: string;
+  category: string;
+  startDate: string;
+  endDate?: string;
+  isVirtual: boolean;
+  venueName?: string;
+  city: string;
+  state?: string;
+  country: string;
+  countryCode: string;
+  latitude: number;
+  longitude: number;
+  virtualLink?: string;
+  image?: string;
+  images: string[];
+  videos: string[];
+  organizerId: string;
+  organizerName: string;
+  capacity?: number;
+  isFree: boolean;
+  price?: number;
+  currency: string;
+  tags: string[];
+  dresscode?: string;
+  agenda?: { time: string; description: string }[];
+  visibility: 'public' | 'invite_only';
+}
+
 /** Matches GET /api/events exactly (app/api/events/route.ts). Server always excludes past events (startDate >= now); distance/isAttending only populate when latitude+longitude / userId are passed. */
 export function getEvents(opts: {
   latitude?: number;
@@ -61,4 +93,9 @@ export function getRecommendedEvents(userId: string, limit: number = 8): Promise
 /** Matches GET /api/events/related/[eventId] exactly. */
 export function getRelatedEvents(eventId: string): Promise<RelatedEventsResponse> {
   return apiGet(`/api/events/related/${eventId}`);
+}
+
+/** Matches POST /api/events exactly — the same endpoint web's CreateEventForm uses. */
+export function createEvent(input: CreateEventInput): Promise<{ event: EventDetail }> {
+  return apiPost('/api/events', input);
 }

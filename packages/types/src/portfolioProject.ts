@@ -9,10 +9,19 @@ export interface PortfolioProject {
   category?: string | null;
   tags: string[];
   clientType?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  shipsWorldwide?: boolean;
   coverImage?: string | null;
   images: string[];
   videos?: string[];
-  visibility: 'public' | 'private';
+  // 'featured' was missing here even though the schema/web have always had
+  // it — a pre-existing gap, fixed while this same field is being wired
+  // end-to-end for the new form's pill visibility control.
+  visibility: 'public' | 'private' | 'featured';
   isFeatured: boolean;
   isPinned: boolean;
   sortOrder: number;
