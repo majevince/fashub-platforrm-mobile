@@ -15,7 +15,7 @@ export type {
   RelatedEventsResponse,
   EventSort,
 } from './event';
-export { EVENT_CATEGORY_LABELS, EVENT_CATEGORIES } from './event';
+export { EVENT_CATEGORY_LABELS, EVENT_CATEGORIES, eventCategoryLabel } from './event';
 export type {
   CommunityVisibility,
   CommunityMemberRoleType,

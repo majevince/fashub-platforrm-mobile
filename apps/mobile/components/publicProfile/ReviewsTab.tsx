@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, Modal, TextInput, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Star, MessageSquare, X } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { getReviews, createReview, ApiError } from '@fashub/api-client';
@@ -109,6 +110,11 @@ function ReviewComposer({
   onSubmitted: () => void;
 }) {
   const { colors, typeScale, spacing, radius } = useTheme();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly and added to the existing base padding instead.
+  const insets = useSafeAreaInsets();
   const [scores, setScores] = useState<Record<string, number>>({ qualityRating: 0, serviceRating: 0, valueRating: 0, timelinessRating: 0, communicationRating: 0 });
   const [title, setTitle] = useState('');
   const [comment, setComment] = useState('');
@@ -152,7 +158,7 @@ function ReviewComposer({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: colors.ivory }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg }}>
           <Pressable onPress={onClose} hitSlop={8}>
             <X size={22} color={colors.ink} />
           </Pressable>

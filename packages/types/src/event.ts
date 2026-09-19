@@ -40,6 +40,17 @@ export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   other: 'Other',
 };
 
+/**
+ * Display label for a specific event's category — same one-off-free-text
+ * convention as PortfolioProject.category/clientType's "+ Add custom…",
+ * paired with a closed enum: `other` + a populated `customCategory` shows
+ * the custom text instead of the generic "Other" label.
+ */
+export function eventCategoryLabel(event: { category: EventCategory; customCategory?: string | null }): string {
+  if (event.category === 'other' && event.customCategory?.trim()) return event.customCategory.trim();
+  return EVENT_CATEGORY_LABELS[event.category];
+}
+
 export const EVENT_CATEGORIES: EventCategory[] = [
   'fashion_show',
   'workshop',
@@ -73,6 +84,7 @@ export interface EventListItem {
   description?: string | null;
   shortDescription?: string | null;
   category: EventCategory;
+  customCategory?: string | null;
   status: EventStatus;
   visibility?: EventVisibility;
   startDate: string;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, Keyboard, Platform, LayoutChangeEvent, Image as RNImage, ActivityIndicator, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { captureRef } from 'react-native-view-shot';
@@ -32,6 +33,11 @@ const MAX_VIDEO_SECONDS = 30;
 
 export function CreateStoryModal({ visible, onClose, onCreated }: Props) {
   const { colors, typeScale, spacing, radius } = useTheme();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly and added to the existing base padding instead.
+  const insets = useSafeAreaInsets();
   const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [caption, setCaption] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -254,7 +260,7 @@ export function CreateStoryModal({ visible, onClose, onCreated }: Props) {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={{ flex: 1, backgroundColor: colors.ivory, marginBottom: keyboardHeight }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg + insets.top, paddingBottom: spacing.sm }}>
           <Pressable onPress={handleClose} hitSlop={8}>
             <X size={22} color={colors.ink} />
           </Pressable>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, FlatList, Modal, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -376,6 +376,12 @@ function FabricFormModal({
   onSaved: () => void;
 }) {
   const { colors, typeScale, spacing, radius } = useTheme();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — SafeAreaView here
+  // silently applied no top inset for that reason; insets read directly
+  // instead and added to the existing base padding.
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [fabricType, setFabricType] = useState('');
   const [description, setDescription] = useState('');
@@ -449,8 +455,8 @@ function FabricFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg }}>
+      <View style={{ flex: 1, backgroundColor: colors.ivory }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg }}>
           <Pressable onPress={onClose} hitSlop={8}>
             <X size={22} color={colors.ink} />
           </Pressable>
@@ -494,7 +500,7 @@ function FabricFormModal({
             {saving ? 'Saving…' : item ? 'Save changes' : 'Add to inventory'}
           </Button>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

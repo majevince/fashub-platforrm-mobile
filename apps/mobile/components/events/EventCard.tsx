@@ -7,7 +7,7 @@ import { violetColors as VF } from '@fashub/design-tokens';
 import { useTheme } from '../../theme/ThemeProvider';
 import { resolveMediaUrl, toggleSavedItem, attendEvent, unattendEvent } from '@fashub/api-client';
 import type { EventListItem } from '@fashub/types';
-import { EVENT_CATEGORY_LABELS } from '@fashub/types';
+import { eventCategoryLabel } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
 import { AvatarStack } from '../ui/AvatarStack';
 
@@ -111,7 +111,7 @@ export function EventCard({
         ) : null}
 
         <View style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-          <Text style={{ fontSize: 9.5, fontWeight: '600', color: colors.ink }}>{EVENT_CATEGORY_LABELS[event.category]}</Text>
+          <Text style={{ fontSize: 9.5, fontWeight: '600', color: colors.ink }}>{eventCategoryLabel(event)}</Text>
         </View>
 
         {!isPast && !isOngoing && priceLabel ? (

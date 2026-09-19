@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, PanResponder, ActivityIndicator, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { X, Check } from 'lucide-react-native';
@@ -37,6 +38,11 @@ type Props = {
  * since RN has no native <canvas>/<video> frame-capture API.
  */
 export function VideoTrimEditor({ uri, durationMs, maxDurationSeconds, onCancel, onConfirm }: Props) {
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly and added to the existing base padding instead.
+  const insets = useSafeAreaInsets();
   const durationSeconds = durationMs / 1000;
   const [thumbnails, setThumbnails] = useState<string[] | null>(null);
   const [trimStart, setTrimStart] = useState(0);
@@ -116,7 +122,7 @@ export function VideoTrimEditor({ uri, durationMs, maxDurationSeconds, onCancel,
   const endX = (trimEnd / durationSeconds) * TIMELINE_W;
 
   return (
-    <View style={{ flex: 1, backgroundColor: V.ink, justifyContent: 'center', padding: 16, gap: 24 }}>
+    <View style={{ flex: 1, backgroundColor: V.ink, justifyContent: 'center', paddingTop: 16 + insets.top, paddingHorizontal: 16, paddingBottom: 16, gap: 24 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable onPress={onCancel} hitSlop={8}>
           <X size={22} color="#fff" />

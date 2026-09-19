@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { X, FolderKanban, Plus } from 'lucide-react-native';
@@ -12,6 +13,11 @@ import { EmptyNotice } from './PortfolioTab';
 export function ProjectsTab({ userId, role, showProjects, isOwner }: { userId: string; role: 'designer' | 'tailor'; showProjects: boolean; isOwner?: boolean }) {
   const { colors, typeScale, radius } = useTheme();
   const router = useRouter();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly and added to the existing base offset instead.
+  const insets = useSafeAreaInsets();
   const [projects, setProjects] = useState<PortfolioProject[] | null>(null);
   const [selected, setSelected] = useState<PortfolioProject | null>(null);
 
@@ -85,13 +91,13 @@ export function ProjectsTab({ userId, role, showProjects, isOwner }: { userId: s
             <ScrollView>
               <View style={{ height: 220, backgroundColor: colors.ivoryDeep }}>
                 {selected.coverImage ? <Image source={{ uri: resolveMediaUrl(selected.coverImage) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
-                <Pressable onPress={() => setSelected(null)} style={{ position: 'absolute', top: 44, left: 16, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}>
+                <Pressable onPress={() => setSelected(null)} style={{ position: 'absolute', top: 44 + insets.top, left: 16, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,18,16,0.5)', alignItems: 'center', justifyContent: 'center' }}>
                   <X size={18} color="#fff" />
                 </Pressable>
                 {isOwner ? (
                   <Pressable
                     onPress={() => { const id = selected.id; setSelected(null); router.push(`/project/${id}/edit`); }}
-                    style={{ position: 'absolute', top: 44, right: 16, backgroundColor: 'rgba(20,18,16,0.5)', borderRadius: 17, paddingHorizontal: 14, paddingVertical: 8 }}
+                    style={{ position: 'absolute', top: 44 + insets.top, right: 16, backgroundColor: 'rgba(20,18,16,0.5)', borderRadius: 17, paddingHorizontal: 14, paddingVertical: 8 }}
                   >
                     <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '700' }}>Edit</Text>
                   </Pressable>

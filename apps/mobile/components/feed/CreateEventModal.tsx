@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Modal, ActivityIndicator, Keyboard, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Plus } from 'lucide-react-native';
@@ -95,11 +96,17 @@ function buildAgendaSlots(start: Date, end: Date): { value: string; label: strin
  */
 export function CreateEventModal({ visible, onClose, onCreated }: Props) {
   const { colors, fontFamilies } = useTheme();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly and added to the existing base padding instead.
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
   // Combined date+time per boundary, matching web's identical model — makes
   // the Start/End comparison and auto-adjustment a plain Date comparison.
   const [startDateTime, setStartDateTime] = useState<Date | null>(null);
@@ -107,6 +114,7 @@ export function CreateEventModal({ visible, onClose, onCreated }: Props) {
   const [dateError, setDateError] = useState('');
   const [isVirtual, setIsVirtual] = useState(false);
   const [venueName, setVenueName] = useState('');
+  const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [country, setCountry] = useState('United States');
@@ -222,19 +230,16 @@ export function CreateEventModal({ visible, onClose, onCreated }: Props) {
         description: description.trim() || undefined,
         shortDescription: description.trim().slice(0, 150) || undefined,
         category,
+        customCategory: category === 'other' ? customCategory.trim() || undefined : undefined,
         startDate: startDateTime.toISOString(),
         endDate: endDateTime ? endDateTime.toISOString() : undefined,
         isVirtual,
         venueName: venueName || undefined,
+        address: address || undefined,
         city: city || (isVirtual ? 'Online' : ''),
         state: state || undefined,
         country,
         countryCode,
-        // Events don't yet geocode city/state/country server-side the way
-        // Projects does — out of scope for this redesign, same known gap
-        // web's own form carries (flagged there too).
-        latitude: 40.7128,
-        longitude: -74.006,
         virtualLink: virtualLink || undefined,
         image: coverImage || undefined,
         images,
@@ -275,7 +280,7 @@ export function CreateEventModal({ visible, onClose, onCreated }: Props) {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={{ flex: 1, backgroundColor: colors.paper, marginBottom: keyboardHeight }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.line }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14 + insets.top, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.line }}>
           <Pressable onPress={handleClose} hitSlop={8}><Text style={{ fontSize: 18, color: colors.inkSoft }}>←</Text></Pressable>
           <Text style={{ fontFamily: fontFamilies.serif, fontSize: 18, color: colors.ink }}>Create Event</Text>
           <Pressable onPress={handleClose} hitSlop={8}><X size={18} color={colors.inkSoft} /></Pressable>
@@ -336,6 +341,15 @@ export function CreateEventModal({ visible, onClose, onCreated }: Props) {
                 );
               })}
             </View>
+            {category === 'other' ? (
+              <TextInput
+                value={customCategory}
+                onChangeText={setCustomCategory}
+                placeholder="Custom event type..."
+                placeholderTextColor={colors.inkSoft}
+                style={{ ...softInput, marginTop: 10 }}
+              />
+            ) : null}
           </View>
 
           {/* Description with hashtag detection */}
@@ -437,6 +451,10 @@ export function CreateEventModal({ visible, onClose, onCreated }: Props) {
               <View>
                 <Text style={fieldLabel}>Venue name</Text>
                 <TextInput value={venueName} onChangeText={setVenueName} placeholder="e.g. Civic Center Hall" placeholderTextColor={colors.inkSoft} style={softInput} />
+              </View>
+              <View>
+                <Text style={fieldLabel}>Address (optional)</Text>
+                <TextInput value={address} onChangeText={setAddress} placeholder="e.g. 123 Main St" placeholderTextColor={colors.inkSoft} style={softInput} />
               </View>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <TextInput value={city} onChangeText={setCity} placeholder="City" placeholderTextColor={colors.inkSoft} style={{ ...softInput, flex: 1 }} />

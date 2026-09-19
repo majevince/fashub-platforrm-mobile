@@ -7,16 +7,16 @@ export interface CreateEventInput {
   description?: string;
   shortDescription?: string;
   category: string;
+  customCategory?: string;
   startDate: string;
   endDate?: string;
   isVirtual: boolean;
   venueName?: string;
+  address?: string;
   city: string;
   state?: string;
   country: string;
   countryCode: string;
-  latitude: number;
-  longitude: number;
   virtualLink?: string;
   image?: string;
   images: string[];

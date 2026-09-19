@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { X } from 'lucide-react-native';
 import { violetColors as V } from '@fashub/design-tokens';
@@ -23,6 +24,14 @@ type Props = {
 export function PhotoGalleryViewer({ visible, images, initialIndex = 0, onClose }: Props) {
   const [index, setIndex] = useState(initialIndex);
   const scrollRef = useRef<ScrollView>(null);
+  // Modal is its own native presentation surface — the SafeAreaProvider
+  // higher up the tree (seeded by expo-router's root) doesn't reach in
+  // here, and this had no safe-area handling at all before (hardcoded
+  // top: 52/58 guesses). Insets read directly instead, additive over the
+  // same visual gap those literals implied, matching the app's established
+  // "fixed base + real inset" pattern (apps/mobile/app/(tabs)/_layout.tsx's
+  // bottom tab bar fix).
+  const insets = useSafeAreaInsets();
 
   // Modal doesn't unmount its children between closes, so neither `index`
   // state nor the ScrollView's initial contentOffset would otherwise reset
@@ -60,14 +69,14 @@ export function PhotoGalleryViewer({ visible, images, initialIndex = 0, onClose 
         <Pressable
           onPress={onClose}
           hitSlop={10}
-          style={{ position: 'absolute', top: 52, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'absolute', top: insets.top + 8, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
         >
           <X size={20} color="#fff" />
         </Pressable>
 
         {images.length > 1 ? (
           <>
-            <View style={{ position: 'absolute', top: 58, left: 20, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+            <View style={{ position: 'absolute', top: insets.top + 14, left: 20, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>{index + 1} / {images.length}</Text>
             </View>
             <View style={{ position: 'absolute', bottom: 44, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,12 @@ type Props = {
  * optional name/role caption over a bottom gradient.
  */
 export function PhotoLightbox({ visible, uri, title, subtitle, onClose }: Props) {
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree — insets read
+  // directly instead of the hardcoded top: 52 this used before, additive
+  // over the same visual gap that literal implied (the image itself stays
+  // full-bleed by design; only the overlaid control gets a real inset).
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)' }}>
@@ -30,7 +37,7 @@ export function PhotoLightbox({ visible, uri, title, subtitle, onClose }: Props)
         <Pressable
           onPress={onClose}
           hitSlop={10}
-          style={{ position: 'absolute', top: 52, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'absolute', top: insets.top + 8, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
         >
           <X size={20} color="#fff" />
         </Pressable>

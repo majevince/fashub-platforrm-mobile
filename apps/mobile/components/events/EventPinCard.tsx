@@ -6,7 +6,7 @@ import { Bookmark, X } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { resolveMediaUrl, toggleSavedItem } from '@fashub/api-client';
 import type { EventListItem } from '@fashub/types';
-import { EVENT_CATEGORY_LABELS } from '@fashub/types';
+import { eventCategoryLabel } from '@fashub/types';
 
 /**
  * Mobile adaptation of web's Zillow-style anchored photo-card popup
@@ -61,7 +61,7 @@ export function EventPinCard({ event, userId, onClose }: { event: EventListItem;
         {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" /> : null}
 
         <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-          <Text style={{ fontSize: 9.5, fontWeight: '600', color: colors.ink }}>{EVENT_CATEGORY_LABELS[event.category]}</Text>
+          <Text style={{ fontSize: 9.5, fontWeight: '600', color: colors.ink }}>{eventCategoryLabel(event)}</Text>
         </View>
 
         <Pressable onPress={onClose} hitSlop={8} style={{ position: 'absolute', top: 8, right: 40, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}>
@@ -85,7 +85,7 @@ export function EventPinCard({ event, userId, onClose }: { event: EventListItem;
       <View style={{ padding: 12, gap: 6 }}>
         <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.ink }} numberOfLines={1}>{event.title}</Text>
         <Text style={{ ...typeScale.label, fontWeight: '600', color: colors.inkSoft, letterSpacing: 0 }}>
-          {[event.city, event.state].filter(Boolean).join(', ')} · {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {priceLabel ?? EVENT_CATEGORY_LABELS[event.category]}
+          {[event.city, event.state].filter(Boolean).join(', ')} · {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {priceLabel ?? eventCategoryLabel(event)}
         </Text>
         <Pressable onPress={() => router.push(`/event/${event.id}`)} style={{ backgroundColor: colors.gold, borderRadius: 10, paddingVertical: 9, alignItems: 'center', marginTop: 4 }}>
           <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.ivory }}>View event</Text>

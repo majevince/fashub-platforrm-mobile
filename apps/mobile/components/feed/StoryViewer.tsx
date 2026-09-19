@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, Animated, StyleSheet, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
@@ -30,10 +31,6 @@ type Props = {
 
 const DEFAULT_DURATION_MS = 5000;
 const REACTION_EMOJIS = ['🔥', '🎧', '💃', '✨'];
-// Progress bars (paddingTop 54 + ~3px bar) + header row (paddingTop 10 +
-// 32px buttons), with headroom — the tap-to-advance zones start below this,
-// never under the header's own buttons. See the "Tap zones" comment below.
-const HEADER_SAFE_ZONE_HEIGHT = 110;
 
 /** Web's real music-feature palette (components/stories/StoryViewer.tsx / lib/design/tokens.ts) — see MusicSheet.tsx's `V` for why this diverges from the app's ink/ivory/gold/oxblood set. Scoped to the music sticker only. */
 const V = { primary: '#6D28D9', primaryDeep: '#4C1D95' } as const;
@@ -48,6 +45,19 @@ const V = { primary: '#6D28D9', primaryDeep: '#4C1D95' } as const;
  */
 export function StoryViewer({ group, currentUserId, onClose, onViewed, onDeleted }: Props) {
   const { colors, typeScale, spacing } = useTheme();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree — this had no
+  // safe-area handling at all before (a flat paddingTop: 54 guess). Only
+  // the progress-bar row needs the real inset: the header row right below
+  // it is positioned in normal flow, not against the physical screen edge,
+  // so its own paddingTop: 10 is just breathing room between the two rows.
+  const insets = useSafeAreaInsets();
+  const progressBarTop = insets.top + 8;
+  // Progress-bar row's own height (paddingTop + 2.5px bar) + header row's
+  // height (paddingTop 10 + 32px buttons) + a small buffer — replaces the
+  // flat 110 guess this used before with the same shape, now derived from
+  // the real inset instead of a device-specific literal.
+  const headerSafeZoneHeight = progressBarTop + 2.5 + 10 + 32 + 6;
   const [index, setIndex] = useState(0);
   const progress = useRef(new Animated.Value(0)).current;
   const isOwner = group?.author.id === currentUserId;
@@ -285,7 +295,7 @@ export function StoryViewer({ group, currentUserId, onClose, onViewed, onDeleted
         ) : null}
 
         {/* Progress bars */}
-        <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: spacing.md, paddingTop: 54 }}>
+        <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: spacing.md, paddingTop: progressBarTop }}>
           {group.stories.map((s, i) => (
             <View key={s.id} style={{ flex: 1, height: 2.5, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}>
               <Animated.View
@@ -416,7 +426,7 @@ export function StoryViewer({ group, currentUserId, onClose, onViewed, onDeleted
             button; carving the header's actual screen region out of the
             tap-zone's hit area removes that ambiguity structurally instead
             of relying on stacking priority alone (kept as defense-in-depth). */}
-        <View style={{ position: 'absolute', top: HEADER_SAFE_ZONE_HEIGHT, left: 0, right: 0, bottom: 0, zIndex: 1 }} pointerEvents="box-none">
+        <View style={{ position: 'absolute', top: headerSafeZoneHeight, left: 0, right: 0, bottom: 0, zIndex: 1 }} pointerEvents="box-none">
           <View style={{ flex: 1, flexDirection: 'row' }}>
             <Pressable style={{ flex: 1 }} onPress={goPrev} />
             <Pressable style={{ flex: 1 }} onPress={goNext} />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, ScrollView, Pressable, Keyboard, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X, ImagePlus } from 'lucide-react-native';
@@ -23,6 +24,11 @@ const CATEGORIES: PostCategory[] = ['casual', 'formal', 'business', 'traditional
 export function CreatePostModal({ visible, onClose, onCreated }: Props) {
   const { colors, typeScale, spacing, radius } = useTheme();
   const { user } = useAuth();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly and added to the existing base padding instead.
+  const insets = useSafeAreaInsets();
 
   const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [title, setTitle] = useState('');
@@ -114,7 +120,7 @@ export function CreatePostModal({ visible, onClose, onCreated }: Props) {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={{ flex: 1, backgroundColor: colors.ivory, marginBottom: keyboardHeight }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg + insets.top, paddingBottom: spacing.sm }}>
           <Pressable onPress={handleClose} hitSlop={8}>
             <X size={22} color={colors.ink} />
           </Pressable>

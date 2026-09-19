@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, PanResponder } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -24,6 +25,13 @@ type Props = {
  */
 export function CoverPositionPicker({ visible, uri, initialPosition, uploading, onConfirm, onCancel }: Props) {
   const { spacing } = useTheme();
+  // Modal is its own native presentation surface, unreached by any
+  // SafeAreaView/SafeAreaProvider further up the tree (same root cause
+  // documented in PhotoLightbox.tsx/StoryViewer.tsx) — insets read
+  // directly, replacing the flat 56 top-padding guess this used before
+  // (which happened to clear a standard status bar but not a notch/
+  // Dynamic Island) with the real inset plus a small residual margin.
+  const insets = useSafeAreaInsets();
   const [position, setPosition] = useState<CoverPhotoPosition>(initialPosition ?? { x: 50, y: 50 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const base = useRef(position);
@@ -51,7 +59,7 @@ export function CoverPositionPicker({ visible, uri, initialPosition, uploading, 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
       <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: 56, paddingBottom: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.sm + insets.top, paddingBottom: spacing.sm }}>
           <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff' }}>Position your cover photo</Text>
           <Pressable onPress={onCancel} hitSlop={8}>
             <X size={22} color="#fff" />

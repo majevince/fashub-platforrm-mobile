@@ -20,7 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { getEvent, getRelatedEvents, attendEvent, unattendEvent, toggleSavedItem, resolveMediaUrl, API_BASE_URL, ApiError } from '@fashub/api-client';
 import type { EventDetail, EventListItem } from '@fashub/types';
-import { EVENT_CATEGORY_LABELS } from '@fashub/types';
+import { eventCategoryLabel } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
@@ -197,7 +197,7 @@ export default function EventDetailScreen() {
         <View style={{ padding: 16, gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <View style={{ backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ fontSize: 10.5, fontWeight: '700', color: colors.gold }}>{EVENT_CATEGORY_LABELS[event.category]}</Text>
+              <Text style={{ fontSize: 10.5, fontWeight: '700', color: colors.gold }}>{eventCategoryLabel(event)}</Text>
             </View>
             {priceLabel ? (
               <View style={{ backgroundColor: event.isFree ? '#059669' : colors.gold, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
