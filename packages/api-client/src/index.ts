@@ -2,7 +2,7 @@ export { API_BASE_URL } from './config';
 export { getHealth } from './health';
 export type { HealthStatus } from './health';
 export { ApiError, apiGet, apiPost, apiPatch, apiPut, apiDelete } from './http';
-export { login, signup, forgotPassword, validateResetToken, resetPassword } from './auth';
+export { login, signup, forgotPassword, validateResetToken, resetPassword, loginWithGoogle, loginWithApple } from './auth';
 export { setAuthTokenProvider, setUnauthorizedHandler } from './session';
 export { resolveMediaUrl } from './media';
 export { getFeed } from './feed';

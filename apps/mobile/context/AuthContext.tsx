@@ -1,7 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { secureStorage } from '../lib/secureStorage';
-import { login as apiLogin, signup as apiSignup, setAuthTokenProvider, setUnauthorizedHandler } from '@fashub/api-client';
-import type { User, LoginPayload, SignupPayload } from '@fashub/types';
+import {
+  login as apiLogin,
+  signup as apiSignup,
+  loginWithGoogle as apiLoginWithGoogle,
+  loginWithApple as apiLoginWithApple,
+  setAuthTokenProvider,
+  setUnauthorizedHandler,
+} from '@fashub/api-client';
+import type { User, LoginPayload, SignupPayload, AppleSsoUser } from '@fashub/types';
 
 const TOKEN_KEY = 'fashub_access_token';
 const REFRESH_TOKEN_KEY = 'fashub_refresh_token';
@@ -12,6 +19,8 @@ type AuthContextValue = {
   loading: boolean;
   login: (payload: LoginPayload) => Promise<void>;
   signup: (payload: SignupPayload) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithApple: (identityToken: string, appleUser?: AppleSsoUser) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -60,6 +69,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await apiSignup(payload);
   }, []);
 
+  // Unlike password signup above, Google/Apple sign-in has no password to
+  // send the person back to re-enter — a successful response establishes
+  // the session immediately, same as login.
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const res = await apiLoginWithGoogle(idToken);
+      await persistSession(res.user, res.token, res.refreshToken);
+    },
+    [persistSession]
+  );
+
+  const loginWithApple = useCallback(
+    async (identityToken: string, appleUser?: AppleSsoUser) => {
+      const res = await apiLoginWithApple(identityToken, appleUser);
+      await persistSession(res.user, res.token, res.refreshToken);
+    },
+    [persistSession]
+  );
+
   const logout = useCallback(async () => {
     await secureStorage.deleteItemAsync(TOKEN_KEY);
     await secureStorage.deleteItemAsync(REFRESH_TOKEN_KEY);
@@ -80,7 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [logout]);
 
-  return <AuthContext.Provider value={{ user, loading, login, signup, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, loginWithApple, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

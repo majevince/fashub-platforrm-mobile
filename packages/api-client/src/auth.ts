@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from './http';
-import type { LoginPayload, SignupPayload, AuthResponse } from '@fashub/types';
+import type { LoginPayload, SignupPayload, AuthResponse, AppleSsoUser } from '@fashub/types';
 
 /** Matches app/api/auth/login/route.ts exactly: POST {email, password} -> {message, user, token, refreshToken}. */
 export function login(payload: LoginPayload): Promise<AuthResponse> {
@@ -29,4 +29,24 @@ export function validateResetToken(token: string): Promise<{ valid: boolean }> {
 /** Matches the POST handler in the same route — consumes the token and rotates the password. */
 export function resetPassword(token: string, password: string, confirmPassword: string): Promise<{ message: string }> {
   return apiPost<{ message: string }>('/api/auth/reset-password', { token, password, confirmPassword });
+}
+
+/**
+ * Matches app/api/auth/sso/google/route.ts: POST {idToken} -> AuthResponse.
+ * `idToken` is the raw Google-issued ID token from whichever native/JS
+ * Google Sign-In flow ran on this platform — the backend verifies it
+ * against Google's public keys, this call does no verification itself.
+ */
+export function loginWithGoogle(idToken: string): Promise<AuthResponse> {
+  return apiPost<AuthResponse>('/api/auth/sso/google', { idToken });
+}
+
+/**
+ * Matches app/api/auth/sso/apple/route.ts: POST {identityToken, user?} ->
+ * AuthResponse. `user` is only ever non-null on the very first authorization
+ * for this app (Apple's own behavior, not something this SDK controls) —
+ * pass through whatever expo-apple-authentication returned, unmodified.
+ */
+export function loginWithApple(identityToken: string, user?: AppleSsoUser): Promise<AuthResponse> {
+  return apiPost<AuthResponse>('/api/auth/sso/apple', { identityToken, user });
 }

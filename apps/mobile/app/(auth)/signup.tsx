@@ -2,24 +2,32 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
+import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
 import { Banner } from '../../components/Banner';
 import { Checkbox } from '../../components/Checkbox';
+import { SocialButton } from '../../components/SocialButton';
 import { AuthLogo } from '../../components/AuthLogo';
 import { ApiError } from '@fashub/api-client';
 import type { UserRole } from '@fashub/types';
+import { googleSignIn, appleSignIn, SsoCancelledError, ssoErrorMessage } from '../../lib/sso';
 
 /** Mirrors app/auth/signup/page.tsx on web: same role options, fields, and validation rules. */
-const ROLES: { value: Extract<UserRole, 'individual' | 'designer' | 'tailor'>; label: string; desc: string }[] = [
-  { value: 'individual', label: 'Client', desc: 'Find & hire professionals' },
-  { value: 'designer', label: 'Designer', desc: 'Showcase your designs' },
-  { value: 'tailor', label: 'Tailor', desc: 'Grow your business' },
+const ROLES: { value: Extract<UserRole, 'individual' | 'designer' | 'tailor'>; label: string }[] = [
+  { value: 'individual', label: 'Client' },
+  { value: 'designer', label: 'Designer' },
+  { value: 'tailor', label: 'Tailor' },
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Names read best capitalized — this capitalizes just the first character as
+// typed, without forcing the rest of the string to any case (so "McCarthy"
+// or "deVries" aren't clobbered). Mirrors the web signup form.
+const capitalizeFirst = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 /**
  * Web scores strength on a 5-tier red→green scale; the approved palette has
@@ -40,23 +48,29 @@ function getPasswordStrength(pw: string): { score: 0 | 1 | 2 | 3; label: string 
 
 export default function SignupScreen() {
   const { colors, typeScale, spacing } = useTheme();
-  const { signup } = useAuth();
+  const { signup, loginWithGoogle, loginWithApple } = useAuth();
+  const [ssoLoading, setSsoLoading] = useState<'google' | 'apple' | null>(null);
+  const [ssoError, setSsoError] = useState('');
 
-  const [role, setRole] = useState<UserRole | ''>('');
+  // Defaults to Client (matches web) so the submit button always reads a
+  // real role from the first render instead of a blank "account" state.
+  const [role, setRole] = useState<Extract<UserRole, 'individual' | 'designer' | 'tailor'>>('individual');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const roleLabel = ROLES.find((r) => r.value === role)?.label ?? 'account';
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (!role) e.role = 'Select an account type';
     if (!firstName.trim()) e.firstName = 'Required';
     if (!lastName.trim()) e.lastName = 'Required';
     if (!email.trim()) e.email = 'Required';
@@ -78,7 +92,7 @@ export default function SignupScreen() {
         email: email.trim(),
         password,
         displayName,
-        role: role as Extract<UserRole, 'individual' | 'designer' | 'tailor'>,
+        role,
         profileData: { bio: `${role} on FaSHub` },
       });
       router.replace('/(auth)/login?registered=true');
@@ -89,73 +103,121 @@ export default function SignupScreen() {
     }
   };
 
+  // Unlike the password flow above, Google/Apple sign-in has no password to
+  // send the person back to re-enter — a successful response logs them
+  // straight in, same as the login screen's own SSO handlers.
+  const handleGoogle = async () => {
+    setSsoError('');
+    setSsoLoading('google');
+    try {
+      const idToken = await googleSignIn();
+      await loginWithGoogle(idToken);
+      router.replace('/');
+    } catch (err) {
+      if (!(err instanceof SsoCancelledError)) {
+        setSsoError(ssoErrorMessage(err, 'Google sign-in failed. Please try again.'));
+      }
+    } finally {
+      setSsoLoading(null);
+    }
+  };
+
+  const handleApple = async () => {
+    setSsoError('');
+    setSsoLoading('apple');
+    try {
+      const { identityToken, user } = await appleSignIn();
+      await loginWithApple(identityToken, user);
+      router.replace('/');
+    } catch (err) {
+      if (!(err instanceof SsoCancelledError)) {
+        setSsoError(ssoErrorMessage(err, 'Apple sign-in failed. Please try again.'));
+      }
+    } finally {
+      setSsoLoading(null);
+    }
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }} edges={['top']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+          <ChevronLeft size={22} color={colors.ink} />
+        </Pressable>
+
         <ScrollView
-          contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: 'center', gap: spacing.xs }}>
             <AuthLogo />
             <Text style={{ ...typeScale.h1, fontFamily: undefined, fontWeight: '700', color: colors.ink, marginTop: spacing.md }}>Create your account</Text>
             <Text style={{ ...typeScale.body, fontFamily: undefined, fontWeight: '400', color: colors.inkSoft, textAlign: 'center' }}>
-              Join fashion professionals and clients on FaSHub
+              Join the fashion network in a minute.
             </Text>
           </View>
 
           {errors.submit ? <Banner tone="error">{errors.submit}</Banner> : null}
+          {ssoError ? <Banner tone="error">{ssoError}</Banner> : null}
 
           <View style={{ gap: spacing.sm }}>
-            <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '500', color: colors.ink }}>
-              I am a
-            </Text>
-            <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-              {ROLES.map((r) => {
-                const active = role === r.value;
-                return (
-                  <Pressable
-                    key={r.value}
-                    onPress={() => setRole(r.value)}
-                    style={[
-                      styles.roleCard,
-                      {
-                        borderColor: active ? colors.oxblood : colors.line,
-                        backgroundColor: active ? colors.ivoryDeep : colors.ivory,
-                      },
-                    ]}
-                  >
-                    <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', color: colors.ink }}>
-                      {r.label}
-                    </Text>
-                    <Text style={{ fontWeight: '400', fontSize: 10.5, color: colors.inkSoft, marginTop: 2 }}>
-                      {r.desc}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {errors.role ? <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.oxblood }}>{errors.role}</Text> : null}
+            {/* Apple has no native Sign in with Apple on Android — see lib/sso.ts */}
+            {Platform.OS === 'ios' && (
+              <SocialButton
+                provider="apple"
+                onPress={handleApple}
+                loading={ssoLoading === 'apple'}
+                disabled={ssoLoading !== null || loading}
+              />
+            )}
+            <SocialButton
+              provider="google"
+              onPress={handleGoogle}
+              loading={ssoLoading === 'google'}
+              disabled={ssoLoading !== null || loading}
+            />
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
+            <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.inkSoft }}>or with email</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.line }} />
           </View>
 
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
-              <TextField label="First name" value={firstName} onChangeText={setFirstName} error={errors.firstName} autoComplete="given-name" />
+              <TextField
+                label="First name"
+                value={firstName}
+                onChangeText={(v) => setFirstName(capitalizeFirst(v))}
+                error={errors.firstName}
+                autoComplete="given-name"
+                autoCapitalize="words"
+                placeholder="John"
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <TextField label="Last name" value={lastName} onChangeText={setLastName} error={errors.lastName} autoComplete="family-name" />
+              <TextField
+                label="Last name"
+                value={lastName}
+                onChangeText={(v) => setLastName(capitalizeFirst(v))}
+                error={errors.lastName}
+                autoComplete="family-name"
+                autoCapitalize="words"
+                placeholder="Doe"
+              />
             </View>
           </View>
 
           <TextField
-            label="Email address"
+            label="Email"
             value={email}
             onChangeText={setEmail}
             error={errors.email}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder="you@studio.com"
           />
 
           <View style={{ gap: spacing.xs }}>
@@ -164,9 +226,14 @@ export default function SignupScreen() {
               value={password}
               onChangeText={setPassword}
               error={errors.password}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoComplete="new-password"
-              placeholder="••••••••"
+              placeholder="Min. 8 characters"
+              rightElement={
+                <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.gold }}>{showPassword ? 'Hide' : 'Show'}</Text>
+                </Pressable>
+              }
             />
             {password.length > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
@@ -196,10 +263,43 @@ export default function SignupScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             error={errors.confirmPassword}
-            secureTextEntry
+            secureTextEntry={!showConfirmPassword}
             autoComplete="new-password"
-            placeholder="••••••••"
+            placeholder="Re-enter your password"
+            rightElement={
+              <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
+                <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.gold }}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+            }
           />
+
+          <View style={{ gap: spacing.sm }}>
+            <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '500', color: colors.ink }}>
+              I&apos;m joining as
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+              {ROLES.map((r) => {
+                const active = role === r.value;
+                return (
+                  <Pressable
+                    key={r.value}
+                    onPress={() => setRole(r.value)}
+                    style={[
+                      styles.pill,
+                      {
+                        borderColor: active ? colors.gold : colors.line,
+                        backgroundColor: active ? colors.ivoryDeep : colors.ivory,
+                      },
+                    ]}
+                  >
+                    <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', color: active ? colors.goldDim : colors.ink }}>
+                      {r.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
           <View style={{ gap: spacing.xs }}>
             <Checkbox
@@ -212,14 +312,14 @@ export default function SignupScreen() {
             ) : null}
           </View>
 
-          <Button variant="primary" onPress={handleSubmit} disabled={loading}>
-            {loading ? 'Creating account…' : 'Create account'}
+          <Button variant="primary" onPress={handleSubmit} disabled={loading} style={{ backgroundColor: colors.gold }}>
+            {loading ? 'Creating account…' : `Create ${roleLabel.toLowerCase()} account`}
           </Button>
 
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs }}>
             <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.inkSoft }}>Already have an account?</Text>
             <Link href="/(auth)/login">
-              <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', color: colors.oxblood }}>
+              <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', color: colors.gold }}>
                 Sign in
               </Text>
             </Link>
@@ -231,12 +331,10 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  roleCard: {
-    flex: 1,
+  pill: {
     borderWidth: 1.5,
-    borderRadius: 10,
+    borderRadius: 999,
     paddingVertical: 10,
-    paddingHorizontal: 6,
-    alignItems: 'center',
+    paddingHorizontal: 16,
   },
 });

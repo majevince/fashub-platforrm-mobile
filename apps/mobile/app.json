@@ -28,7 +28,8 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-      ]
+      ],
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -58,7 +59,10 @@
           "merchantIdentifier": "merchant.com.fashub.app",
           "enableGooglePay": false
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "router": {},

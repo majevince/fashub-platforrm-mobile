@@ -23,4 +23,11 @@ export interface AuthResponse {
   user: User;
   token: string;
   refreshToken: string;
+  /** Only present on SSO responses — true when this sign-in created a brand-new account rather than logging into an existing one. */
+  isNewUser?: boolean;
+}
+
+export interface AppleSsoUser {
+  name?: { firstName?: string; lastName?: string };
+  email?: string;
 }

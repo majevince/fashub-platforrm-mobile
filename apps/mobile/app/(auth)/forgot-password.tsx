@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
-import { Mail } from 'lucide-react-native';
+import { Link, router } from 'expo-router';
+import { ChevronLeft, Mail } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
@@ -36,10 +36,14 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }} edges={['top']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+          <ChevronLeft size={22} color={colors.ink} />
+        </Pressable>
+
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: 'center', gap: spacing.xs }}>
@@ -50,7 +54,7 @@ export default function ForgotPasswordScreen() {
             <Text style={{ ...typeScale.body, fontFamily: undefined, fontWeight: '400', color: colors.inkSoft, textAlign: 'center' }}>
               {submitted
                 ? "If an account exists with that email, we've sent a link to reset your password."
-                : "Enter your email and we'll send you a link to reset it."}
+                : "Enter your email and we'll send you a link to reset your password."}
             </Text>
           </View>
 
@@ -67,11 +71,11 @@ export default function ForgotPasswordScreen() {
                 autoComplete="email"
                 placeholder="you@example.com"
               />
-              <Button variant="primary" onPress={handleSubmit} disabled={loading}>
+              <Button variant="primary" onPress={handleSubmit} disabled={loading} style={{ backgroundColor: colors.gold }}>
                 {loading ? 'Sending link…' : 'Send reset link'}
               </Button>
               <Link href="/(auth)/login" style={{ alignSelf: 'center' }}>
-                <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.oxblood }}>← Back to login</Text>
+                <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '600', color: colors.gold }}>← Back to login</Text>
               </Link>
             </View>
           ) : (
@@ -86,13 +90,13 @@ export default function ForgotPasswordScreen() {
                   justifyContent: 'center',
                 }}
               >
-                <Mail size={28} color={colors.oxblood} strokeWidth={1.6} />
+                <Mail size={28} color={colors.gold} strokeWidth={1.6} />
               </View>
               <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.inkSoft, textAlign: 'center' }}>
                 The link expires in 30 minutes. If you don't see the email, check your spam folder.
               </Text>
               <Link href="/(auth)/login" asChild>
-                <Button variant="primary">Back to login</Button>
+                <Button variant="primary" style={{ backgroundColor: colors.gold }}>Back to login</Button>
               </Link>
             </View>
           )}

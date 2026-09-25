@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useLocalSearchParams } from 'expo-router';
-import { CircleCheck, CircleX } from 'lucide-react-native';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, CircleCheck, CircleX } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
@@ -36,6 +36,8 @@ export default function ResetPasswordScreen() {
   const [status, setStatus] = useState<Status>(params.token ? 'checking' : 'enter-token');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -107,10 +109,14 @@ export default function ResetPasswordScreen() {
   }[status];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }} edges={['top']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+          <ChevronLeft size={22} color={colors.ink} />
+        </Pressable>
+
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ alignItems: 'center', gap: spacing.xs }}>
@@ -134,7 +140,7 @@ export default function ResetPasswordScreen() {
                 autoCapitalize="none"
                 placeholder="Paste from your email"
               />
-              <Button variant="primary" onPress={handleUseToken}>
+              <Button variant="primary" onPress={handleUseToken} style={{ backgroundColor: colors.gold }}>
                 Continue
               </Button>
             </View>
@@ -152,20 +158,30 @@ export default function ResetPasswordScreen() {
                 label="New password"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 autoComplete="new-password"
-                placeholder="••••••••"
+                placeholder="Min. 8 characters"
                 hint="At least 8 characters, with a letter and a number"
+                rightElement={
+                  <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.gold }}>{showPassword ? 'Hide' : 'Show'}</Text>
+                  </Pressable>
+                }
               />
               <TextField
                 label="Confirm new password"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                secureTextEntry
+                secureTextEntry={!showConfirmPassword}
                 autoComplete="new-password"
-                placeholder="••••••••"
+                placeholder="Re-enter your password"
+                rightElement={
+                  <Pressable onPress={() => setShowConfirmPassword((v) => !v)} hitSlop={8}>
+                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.gold }}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+                  </Pressable>
+                }
               />
-              <Button variant="primary" onPress={handleSubmit} disabled={loading}>
+              <Button variant="primary" onPress={handleSubmit} disabled={loading} style={{ backgroundColor: colors.gold }}>
                 {loading ? 'Resetting password…' : 'Reset password'}
               </Button>
             </View>
@@ -189,7 +205,7 @@ export default function ResetPasswordScreen() {
                 This link may have already been used or has expired. Request a new one to continue.
               </Text>
               <Link href="/(auth)/forgot-password" asChild>
-                <Button variant="primary">Request new link</Button>
+                <Button variant="primary" style={{ backgroundColor: colors.gold }}>Request new link</Button>
               </Link>
             </View>
           )}
@@ -212,7 +228,7 @@ export default function ResetPasswordScreen() {
                 You've been logged out of all devices for your security.
               </Text>
               <Link href="/(auth)/login" asChild>
-                <Button variant="primary">Continue to login</Button>
+                <Button variant="primary" style={{ backgroundColor: colors.gold }}>Continue to login</Button>
               </Link>
             </View>
           )}

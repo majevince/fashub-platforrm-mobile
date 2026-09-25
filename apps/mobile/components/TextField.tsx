@@ -6,9 +6,11 @@ type Props = TextInputProps & {
   label?: string;
   error?: string;
   hint?: string;
+  /** Optional control (e.g. a Show/Hide toggle) docked inside the field's right edge. */
+  rightElement?: React.ReactNode;
 };
 
-export function TextField({ label, error, hint, style, ...props }: Props) {
+export function TextField({ label, error, hint, rightElement, style, ...props }: Props) {
   const { colors, typeScale, spacing, radius } = useTheme();
 
   return (
@@ -16,24 +18,28 @@ export function TextField({ label, error, hint, style, ...props }: Props) {
       {label ? (
         <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '500', color: colors.ink }}>{label}</Text>
       ) : null}
-      <TextInput
-        placeholderTextColor={colors.inkSoft}
-        style={[
-          {
-            borderWidth: 1,
-            borderColor: error ? colors.oxblood : colors.line,
-            borderRadius: radius.md,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm + 4,
-            fontWeight: '400',
-            fontSize: 15,
-            color: colors.ink,
-            backgroundColor: colors.ivory,
-          },
-          style,
-        ]}
-        {...props}
-      />
+      <View style={{ justifyContent: 'center' }}>
+        <TextInput
+          placeholderTextColor={colors.inkSoft}
+          style={[
+            {
+              borderWidth: 1,
+              borderColor: error ? colors.oxblood : colors.line,
+              borderRadius: radius.md,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm + 4,
+              fontWeight: '400',
+              fontSize: 15,
+              color: colors.ink,
+              backgroundColor: colors.ivory,
+            },
+            rightElement ? { paddingRight: spacing.xl + spacing.md } : null,
+            style,
+          ]}
+          {...props}
+        />
+        {rightElement ? <View style={{ position: 'absolute', right: spacing.md }}>{rightElement}</View> : null}
+      </View>
       {error ? (
         <Text style={{ ...typeScale.bodySmall, fontFamily: undefined, fontWeight: '400', color: colors.oxblood }}>{error}</Text>
       ) : hint ? (
