@@ -36,7 +36,11 @@ function buildMapHtml(
       color: e.id === activeId ? activeColor : categoryColors[e.category] ?? categoryColors.other,
     }));
 
-  const center = points.find((p) => p.id === activeId) ?? points[0] ?? { lat: 40.7128, lng: -74.006 };
+  // With no pins there is nothing to center on: show a neutral world view
+  // (same as web's events map) rather than an arbitrary city.
+  const focus = points.find((p) => p.id === activeId) ?? points[0];
+  const center = focus ?? { lat: 20, lng: 0 };
+  const zoom = focus ? (interactive ? 11 : 14) : 2;
 
   return `<!DOCTYPE html>
 <html>
@@ -58,7 +62,7 @@ function buildMapHtml(
       scrollWheelZoom: ${interactive},
       doubleClickZoom: ${interactive},
       touchZoom: ${interactive}
-    }).setView([${center.lat}, ${center.lng}], ${interactive ? 11 : 14});
+    }).setView([${center.lat}, ${center.lng}], ${zoom});
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',

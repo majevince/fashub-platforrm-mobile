@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -44,27 +44,38 @@ export default function ProfessionalsScreen() {
 
   const [recommended, setRecommended] = useState<MatchedProfessional[] | null>(null);
 
-  // Best-effort auto-geolocate on mount, matching web's own attempt — falls
-  // back to a worldwide search (radius>=500 bypasses the bounding-box
-  // filter server-side, confirmed in Step 0) rather than blocking the whole
-  // screen behind a permission prompt if it's denied.
+  // Location for the default search, in order: the account's saved profile
+  // location (resolved server-side from `userId` — see buildRequest's
+  // preferSavedLocation), then this device's GPS, then none (the server runs
+  // an honest worldwide search). GPS is best-effort: denying it no longer
+  // sends a fake 0,0/radius-500 "worldwide" request, which the server actually
+  // treated as a 500 km circle off the coast of West Africa (33 results).
+  // `locationResolved` gates the first search so it can't race the GPS fix.
+  const [locationResolved, setLocationResolved] = useState(false);
+  // Coordinates from the automatic GPS fix — anything different that reaches
+  // handleApplyFilters was chosen by the user ("use my current location" in
+  // the filters sheet) and then wins over the saved profile location.
+  const autoCoords = useRef<{ lat: number; lng: number } | null>(null);
+  const [locationEdited, setLocationEdited] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const pos = await Location.getCurrentPositionAsync({});
+          autoCoords.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setFilters((f) => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
-        } else {
-          setFilters((f) => ({ ...f, latitude: 0, longitude: 0, radius: 500 }));
         }
       } catch {
-        setFilters((f) => ({ ...f, latitude: 0, longitude: 0, radius: 500 }));
+        // No GPS — fall through to saved location / worldwide on the server.
+      } finally {
+        setLocationResolved(true);
       }
     })();
   }, []);
 
-  const buildRequest = useCallback((f: FilterState, sb: SortBy, q: string, page: number) => ({
+  const buildRequest = useCallback((f: FilterState, sb: SortBy, q: string, page: number, edited: boolean = locationEdited) => ({
     query: q,
     description: f.description,
     categories: f.categories,
@@ -80,38 +91,48 @@ export default function ProfessionalsScreen() {
     minExperience: f.minExperience,
     deliveryMode: f.deliveryMode,
     timeline: f.timeline,
-    latitude: f.latitude ?? 0,
-    longitude: f.longitude ?? 0,
+    latitude: f.latitude ?? undefined,
+    longitude: f.longitude ?? undefined,
+    userId: user?.id,
+    preferSavedLocation: !edited,
     radius: f.country ? 50000 : f.radius,
     country: f.country || undefined,
     sortBy: sb,
     page,
     limit: 20,
-  }), []);
+  }), [user?.id, locationEdited]);
 
-  const search = useCallback((f: FilterState, sb: SortBy, q: string, page = 1, append = false) => {
-    if (f.latitude == null || f.longitude == null) return; // wait for the geolocate effect to resolve first
+  const search = useCallback((f: FilterState, sb: SortBy, q: string, page = 1, append = false, edited: boolean = locationEdited) => {
+    if (!locationResolved) return; // wait for the GPS attempt to settle first
     if (page === 1) { setError(''); if (!append) setResults(null); } else { setLoadingMore(true); }
-    matchProfessionals(buildRequest(f, sb, q, page))
+    matchProfessionals(buildRequest(f, sb, q, page, edited))
       .then((res) => {
         setResults((prev) => (append && prev ? { ...res, professionals: [...prev.professionals, ...res.professionals] } : res));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Couldn't load professionals."))
       .finally(() => setLoadingMore(false));
-  }, [buildRequest]);
+  }, [buildRequest, locationResolved, locationEdited]);
 
   useEffect(() => {
-    if (filters.latitude == null) return;
+    if (!locationResolved) return;
     search(filters, sortBy, query);
-    matchProfessionals({ ...buildRequest(DEFAULT_FILTERS, 'best-match', '', 1), latitude: filters.latitude, longitude: filters.longitude ?? 0, radius: 50000, limit: 8 })
+    matchProfessionals({ ...buildRequest(DEFAULT_FILTERS, 'best-match', '', 1), latitude: filters.latitude ?? undefined, longitude: filters.longitude ?? undefined, radius: 50000, limit: 8 })
       .then((res) => setRecommended(res.professionals))
       .catch(() => setRecommended([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.latitude]);
+  }, [locationResolved]);
 
   const handleSearch = () => search(filters, sortBy, query);
   const handleSort = (sb: SortBy) => { setSortBy(sb); search(filters, sb, query); };
-  const handleApplyFilters = (f: FilterState) => { setFilters(f); setFiltersOpen(false); search(f, sortBy, query); };
+  const handleApplyFilters = (f: FilterState) => {
+    const auto = autoCoords.current;
+    const chosen = f.latitude != null && f.longitude != null && (!auto || f.latitude !== auto.lat || f.longitude !== auto.lng);
+    if (chosen) setLocationEdited(true);
+    setFilters(f);
+    setFiltersOpen(false);
+    // setLocationEdited hasn't flushed yet — pass the value this call needs.
+    search(f, sortBy, query, 1, false, chosen || locationEdited);
+  };
   const toggleCategory = (id: string) => {
     const next = { ...filters, categories: filters.categories.includes(id) ? filters.categories.filter((c) => c !== id) : [...filters.categories, id] };
     setFilters(next);
@@ -211,7 +232,14 @@ export default function ProfessionalsScreen() {
             ) : null}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: V.ink }}>{results ? `${results.total} professionals` : ' '}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: V.ink }}>{results ? `${results.total} professionals` : ' '}</Text>
+                {results?.query.personalized ? (
+                  <View style={{ backgroundColor: V.primarySoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: V.primary }}>Personalized for you</Text>
+                  </View>
+                ) : null}
+              </View>
               <Pressable onPress={() => setFiltersOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <SlidersHorizontal size={14} color={V.primary} />
                 <Text style={{ fontSize: 13, fontWeight: '700', color: V.primary }}>Filters</Text>

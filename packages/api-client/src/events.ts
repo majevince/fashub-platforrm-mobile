@@ -70,8 +70,13 @@ export function getEvents(opts: {
  * are flat `{ events: [...] }`) — unwrapped here so callers get the event
  * object directly, matching every other resource in this client.
  */
-export async function getEvent(eventId: string, userId?: string): Promise<EventDetail> {
-  const res = await apiGet<{ event: EventDetail }>(`/api/events/${eventId}${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`);
+export async function getEvent(eventId: string, userId?: string, opts: { countView?: boolean } = {}): Promise<EventDetail> {
+  const params = new URLSearchParams();
+  if (userId) params.set('userId', userId);
+  // Feed cards read live numbers without counting as a view of the event.
+  if (opts.countView === false) params.set('noView', '1');
+  const qs = params.toString();
+  const res = await apiGet<{ event: EventDetail }>(`/api/events/${eventId}${qs ? `?${qs}` : ''}`);
   return res.event;
 }
 

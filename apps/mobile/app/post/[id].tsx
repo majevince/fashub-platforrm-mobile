@@ -15,6 +15,8 @@ import { useCommentsThread } from '../../components/feed/useCommentsThread';
 import { CommentsList, CommentsComposer, CommentsMenuSheet } from '../../components/feed/CommentsThreadView';
 import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
 import { DEFAULT_ASPECT_RATIO, clampAspectRatio } from '../../lib/mediaAspectRatio';
+import { parseEventPost } from '../../lib/eventPost';
+import { EventPostCard } from '../../components/feed/EventPostCard';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -209,7 +211,18 @@ export default function PostDetailScreen() {
             </Pressable>
 
             <Text style={{ fontSize: 15, fontWeight: '700', color: V.ink }}>{post.title}</Text>
-            {post.description ? <Text style={{ fontSize: 13.5, lineHeight: 19, color: V.inkSoft }}>{post.description}</Text> : null}
+            {(() => {
+              // Same split as the feed card — never print the raw EVENT_DATA blob.
+              const { text, event } = parseEventPost(post.description);
+              return (
+                <>
+                  {text ? <Text style={{ fontSize: 13.5, lineHeight: 19, color: V.inkSoft }}>{text}</Text> : null}
+                  {event ? (
+                    <EventPostCard event={event} organizerName={post.authorName} organizerAvatar={post.authorAvatar} viewerId={user?.id} defaultExpanded />
+                  ) : null}
+                </>
+              );
+            })()}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: V.line }}>
               <Pressable onPress={handleLike} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, padding: 8 }}>

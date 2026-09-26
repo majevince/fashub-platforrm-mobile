@@ -6,6 +6,7 @@ import { Heart, MessageCircle, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeProvider';
 import { resolveMediaUrl } from '@fashub/api-client';
 import type { UserPost } from '@fashub/types';
+import { parseEventPost } from '../../lib/eventPost';
 
 /** Matches web's Dashboard "Recent Posts" grid (myPosts.slice(0, 6), 2-column) — GET /api/posts?authorId= data, not a mislabeled projects/orders list. Cards link to the post detail screen, same as web's `/posts/{id}` link. */
 export function RecentPostsCard({ posts }: { posts: UserPost[] }) {
@@ -38,7 +39,7 @@ export function RecentPostsCard({ posts }: { posts: UserPost[] }) {
             </View>
             <View style={{ padding: 8, gap: 4 }}>
               <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.ink }} numberOfLines={1}>{post.title}</Text>
-              <Text style={{ fontSize: 10.5, fontWeight: '400', color: colors.inkSoft }} numberOfLines={1}>{post.description}</Text>
+              <Text style={{ fontSize: 10.5, fontWeight: '400', color: colors.inkSoft }} numberOfLines={1}>{parseEventPost(post.description).text}</Text>
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                   <Heart size={11} color={colors.inkSoft} />

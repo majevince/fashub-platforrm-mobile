@@ -98,10 +98,22 @@ export interface MatchRequest {
   minExperience: number;
   deliveryMode: DeliveryModeFilter;
   timeline: Timeline;
-  latitude: number;
-  longitude: number;
+  /**
+   * Optional when `userId` is sent: the server falls back to the account's
+   * saved location, then to a worldwide search (never a made-up city).
+   */
+  latitude?: number;
+  longitude?: number;
   radius: number;
   country?: string;
+  /**
+   * Identifies the account so the DEFAULT search (no query/categories/
+   * description/occasion/fabric) ranks against its saved location and
+   * interests. Explicit input is never mixed with interests.
+   */
+  userId?: string;
+  /** Prefer the account's saved location over the coordinates sent (default search). */
+  preferSavedLocation?: boolean;
   sortBy: SortBy;
   page: number;
   limit: number;
@@ -267,6 +279,10 @@ export interface MatchResponse {
     location: { latitude: number; longitude: number };
     radius: number;
     country?: string;
+    /** True when results were ranked against the account's interests. */
+    personalized?: boolean;
+    /** Where the search location came from. */
+    locationSource?: 'request' | 'profile' | 'none';
   };
   filters: {
     availableCountries: string[];

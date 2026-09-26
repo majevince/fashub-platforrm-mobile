@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent, Share, Linking } from 'react-native';
+import { View, Text, Pressable, ScrollView, useWindowDimensions, NativeSyntheticEvent, NativeScrollEvent, Share, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -34,7 +34,9 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { buildEventLocationLine } from '../../lib/eventLocationLine';
 import { openDirections } from '../../lib/directions';
 
-const SCREEN_W = Dimensions.get('window').width;
+// Detail content is capped and centered on tablets/landscape rather than
+// stretching edge to edge — phones are unaffected (width < cap).
+const MAX_CONTENT_W = 760;
 
 /**
  * Full parity port of app/events/[eventId]/page.tsx: gallery (reusing
@@ -49,6 +51,10 @@ const SCREEN_W = Dimensions.get('window').width;
  */
 export default function EventDetailScreen() {
   const { colors, fontFamilies } = useTheme();
+  // Reactive (unlike Dimensions.get at module load) so rotation, iPad split
+  // view and foldables re-layout the gallery correctly.
+  const { width: windowW } = useWindowDimensions();
+  const contentW = Math.min(windowW, MAX_CONTENT_W);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const router = useRouter();
@@ -125,7 +131,7 @@ export default function EventDetailScreen() {
   const hasAdditionalInfo = !!(event.dresscode || event.ageRestriction || event.accessibilityInfo || event.parkingInfo);
 
   const onMediaScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setGalleryIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W));
+    setGalleryIndex(Math.round(e.nativeEvent.contentOffset.x / contentW));
   };
 
   const handleAttend = async () => {
@@ -157,13 +163,14 @@ export default function EventDetailScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.ivory }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
+        <View style={{ width: contentW }}>
         <View style={{ position: 'relative' }}>
           {resolvedGalleryImages.length > 0 ? (
             <View style={{ width: '100%', aspectRatio: 1.3, backgroundColor: colors.ink }}>
               <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onMediaScroll}>
                 {resolvedGalleryImages.map((uri, i) => (
-                  <Pressable key={i} onPress={() => { setGalleryIndex(i); setGalleryOpen(true); }} style={{ width: SCREEN_W, height: '100%' }}>
+                  <Pressable key={i} onPress={() => { setGalleryIndex(i); setGalleryOpen(true); }} style={{ width: contentW, height: '100%' }}>
                     <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   </Pressable>
                 ))}
@@ -431,6 +438,7 @@ export default function EventDetailScreen() {
               </ScrollView>
             </View>
           ) : null}
+        </View>
         </View>
       </ScrollView>
 

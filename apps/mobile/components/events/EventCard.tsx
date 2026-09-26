@@ -7,7 +7,6 @@ import { violetColors as VF } from '@fashub/design-tokens';
 import { useTheme } from '../../theme/ThemeProvider';
 import { resolveMediaUrl, toggleSavedItem, attendEvent, unattendEvent } from '@fashub/api-client';
 import type { EventListItem } from '@fashub/types';
-import { eventCategoryLabel } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
 import { AvatarStack } from '../ui/AvatarStack';
 
@@ -41,10 +40,10 @@ function formatPrice(isFree: boolean, price?: number | null, currency: string = 
  * Full-width single-column card (not a forced grid, per this ticket's own
  * mobile-layout instruction) — same field set as web's EventCard.tsx,
  * reused unmodified in the main list, category-grouped sections, and the
- * Recommended rail. Category labels come from EVENT_CATEGORY_LABELS
- * (hand-written, not title-cased from the enum — confirmed against web).
- * Uses the app's shared theme tokens (useTheme()) — not a separate literal
- * palette — so this matches every other screen's violet/ink/ivory system.
+ * Recommended rail. No category badge and no match-% badge on the image —
+ * removed to match web's card exactly. Uses the app's shared theme tokens
+ * (useTheme()) — not a separate literal palette — so this matches every
+ * other screen's violet/ink/ivory system.
  */
 export function EventCard({
   event,
@@ -110,10 +109,6 @@ export function EventCard({
           </View>
         ) : null}
 
-        <View style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-          <Text style={{ fontSize: 9.5, fontWeight: '600', color: colors.ink }}>{eventCategoryLabel(event)}</Text>
-        </View>
-
         {!isPast && !isOngoing && priceLabel ? (
           <View style={{ position: 'absolute', top: 10, right: 10, backgroundColor: event.isFree ? '#059669' : 'rgba(27,21,35,0.75)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
             <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#fff' }}>{priceLabel}</Text>
@@ -132,11 +127,6 @@ export function EventCard({
           ) : null}
         </View>
 
-        {matchScore != null ? (
-          <View style={{ position: 'absolute', bottom: 10, right: 10, backgroundColor: colors.gold, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-            <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>{Math.round(matchScore)}% MATCH</Text>
-          </View>
-        ) : null}
       </View>
 
       <View style={{ padding: 14, gap: 8 }}>

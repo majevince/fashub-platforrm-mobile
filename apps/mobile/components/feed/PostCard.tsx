@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, NativeSyntheticEvent, NativeScrollEvent, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { violetColors as V } from '@fashub/design-tokens';
@@ -12,6 +12,8 @@ import { CommentsSheet } from './CommentsSheet';
 import { RepostModal, type RepostTarget } from './RepostModal';
 import { PostShareModal } from './PostShareModal';
 import { DEFAULT_ASPECT_RATIO, clampAspectRatio } from '../../lib/mediaAspectRatio';
+import { parseEventPost } from '../../lib/eventPost';
+import { EventPostCard } from './EventPostCard';
 
 type Props = {
   post: FeedPost;
@@ -60,6 +62,10 @@ export function PostCard({ post, onReposted }: Props) {
   const router = useRouter();
   const openDetail = () => router.push(`/post/${post.id}`);
 
+  // Event announcements embed their metadata in the description after a
+  // sentinel — split it so the caption reads as text and the event renders
+  // as a card (this used to print the raw JSON).
+  const { text: captionText, event: eventMeta } = useMemo(() => parseEventPost(post.description), [post.description]);
   const [liked, setLiked] = useState(user ? post.likes.includes(user.id) : false);
   const [likesCount, setLikesCount] = useState(post.likes.length);
   const [saved, setSaved] = useState(false);
@@ -291,20 +297,28 @@ export function PostCard({ post, onReposted }: Props) {
             </Text>
           </Pressable>
         ) : null}
-        {post.description ? (
+        {captionText ? (
           // Tap the description itself to expand; tap again to collapse —
           // no separate "Read more"/"Show less" label to tap, and "Read
           // more" (shown only while collapsed) is the same color as the
           // description text itself, not a distinct accent color.
           <Pressable onPress={() => setExpanded((v) => !v)}>
             <Text style={{ fontSize: 13.5, fontWeight: '400', lineHeight: 19, color: V.inkSoft }} numberOfLines={expanded ? undefined : 2}>
-              {post.description}
+              {captionText}
             </Text>
             {!expanded ? (
               <Text style={{ fontSize: 13.5, fontWeight: '700', lineHeight: 19, color: V.inkSoft, marginTop: 2 }}>
                 Read more
               </Text>
             ) : null}
+        {eventMeta ? (
+          <EventPostCard
+            event={eventMeta}
+            organizerName={post.authorName}
+            organizerAvatar={post.authorAvatar}
+            viewerId={user?.id}
+          />
+        ) : null}
           </Pressable>
         ) : null}
         {(post.tags.length > 0 || post.materials.length > 0 || post.colors.length > 0 || post.sizes.length > 0) && (
