@@ -1,0 +1,206 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, Pressable, Modal, TextInput, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Star, MessageSquare, X } from 'lucide-react-native';
+import { useTheme } from '../../theme/ThemeProvider';
+import { getPageReviews, createReview, ApiError } from '@fashub/api-client';
+import type { Review } from '@fashub/types';
+import { LoadingState } from '../LoadingState';
+import { Banner } from '../Banner';
+import { Button } from '../Button';
+import { ReviewsList } from '../ReviewsList';
+import { EmptyNotice } from '../publicProfile/PortfolioTab';
+
+const RATING_LABELS = [
+  { key: 'qualityRating', label: 'Quality' },
+  { key: 'serviceRating', label: 'Service' },
+  { key: 'valueRating', label: 'Value' },
+  { key: 'timelinessRating', label: 'Timeliness' },
+  { key: 'communicationRating', label: 'Communication' },
+] as const;
+
+/**
+ * Page-scoped port of components/publicProfile/ReviewsTab.tsx — same
+ * composer, same ReviewsList, same rating summary card, just reading/
+ * writing against pageId instead of a personal profile.id (Page reviews
+ * ticket: reuses the exact existing review system rather than a parallel
+ * one, per Vincent's explicit "use the existing review feature").
+ */
+export function PageReviewsTab({
+  pageId,
+  pageName,
+  rating,
+  currentUser,
+  canReview,
+  refreshKey,
+  onSubmitted,
+}: {
+  pageId: string;
+  pageName: string;
+  rating: { averageRating: number; totalReviews: number } | null;
+  currentUser: { id: string; displayName: string; avatar: string | null; role: string } | null;
+  canReview: boolean;
+  refreshKey: number;
+  onSubmitted: () => void;
+}) {
+  const { colors, radius } = useTheme();
+  const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+
+  useEffect(() => {
+    getPageReviews(pageId, { limit: 20 })
+      .then((res) => setReviews(res.reviews))
+      .catch(() => setReviews([]));
+  }, [pageId, refreshKey]);
+
+  return (
+    <View style={{ gap: 16 }}>
+      {rating && rating.totalReviews > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 14 }}>
+          <Text style={{ fontWeight: '700', fontSize: 30, color: colors.ink }}>{rating.averageRating.toFixed(1)}</Text>
+          <View>
+            <View style={{ flexDirection: 'row', gap: 2 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} size={13} color={colors.gold} fill={i <= Math.round(rating.averageRating) ? colors.gold : 'transparent'} />
+              ))}
+            </View>
+            <Text style={{ fontSize: 11, fontWeight: '400', color: colors.inkSoft, marginTop: 2 }}>{rating.totalReviews} reviews</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {canReview ? (
+        <Button variant="outline" onPress={() => setComposerOpen(true)}>
+          Write a review
+        </Button>
+      ) : null}
+
+      {reviews === null ? (
+        <LoadingState />
+      ) : reviews.length === 0 ? (
+        <EmptyNotice icon={MessageSquare} title="No Reviews Yet" message="Be the first to leave a review." />
+      ) : (
+        <ReviewsList reviews={reviews} />
+      )}
+
+      {currentUser ? (
+        <PageReviewComposer
+          visible={composerOpen}
+          onClose={() => setComposerOpen(false)}
+          currentUser={currentUser}
+          pageId={pageId}
+          pageName={pageName}
+          onSubmitted={() => {
+            setComposerOpen(false);
+            onSubmitted();
+          }}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function PageReviewComposer({
+  visible,
+  onClose,
+  currentUser,
+  pageId,
+  pageName,
+  onSubmitted,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  currentUser: { id: string; displayName: string; avatar: string | null; role: string };
+  pageId: string;
+  pageName: string;
+  onSubmitted: () => void;
+}) {
+  const { colors, typeScale, spacing, radius } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [scores, setScores] = useState<Record<string, number>>({ qualityRating: 0, serviceRating: 0, valueRating: 0, timelinessRating: 0, communicationRating: 0 });
+  const [title, setTitle] = useState('');
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (Object.values(scores).some((v) => v === 0) || !comment.trim()) {
+      setError('Rate every category and add a comment.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await createReview({
+        reviewerId: currentUser.id,
+        reviewerName: currentUser.displayName,
+        reviewerAvatar: currentUser.avatar,
+        reviewerRole: currentUser.role,
+        pageId,
+        qualityRating: scores.qualityRating,
+        serviceRating: scores.serviceRating,
+        valueRating: scores.valueRating,
+        timelinessRating: scores.timelinessRating,
+        communicationRating: scores.communicationRating,
+        title: title.trim() || undefined,
+        comment: comment.trim(),
+      });
+      setScores({ qualityRating: 0, serviceRating: 0, valueRating: 0, timelinessRating: 0, communicationRating: 0 });
+      setTitle('');
+      setComment('');
+      onSubmitted();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't submit your review.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: colors.ivory }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg + insets.top, paddingBottom: spacing.lg }}>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <X size={22} color={colors.ink} />
+          </Pressable>
+          <Text style={{ ...typeScale.h2, fontFamily: undefined, fontWeight: '700', color: colors.ink }} numberOfLines={1}>Review {pageName}</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+          {error ? <Banner tone="error">{error}</Banner> : null}
+          {RATING_LABELS.map(({ key, label }) => (
+            <View key={key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: colors.ink }}>{label}</Text>
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Pressable key={i} onPress={() => setScores((s) => ({ ...s, [key]: i }))} hitSlop={4}>
+                    <Star size={22} color={colors.gold} fill={i <= scores[key] ? colors.gold : 'transparent'} />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ))}
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Title (optional)"
+            placeholderTextColor={colors.inkSoft}
+            style={{ backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 12, fontSize: 13, fontWeight: '400', color: colors.ink }}
+          />
+          <TextInput
+            value={comment}
+            onChangeText={setComment}
+            placeholder="Share details of your experience…"
+            placeholderTextColor={colors.inkSoft}
+            multiline
+            numberOfLines={5}
+            style={{ backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 12, minHeight: 110, textAlignVertical: 'top', fontSize: 13, fontWeight: '400', color: colors.ink }}
+          />
+          <Button variant="primary" onPress={handleSubmit} disabled={submitting}>
+            {submitting ? 'Submitting…' : 'Submit review'}
+          </Button>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}

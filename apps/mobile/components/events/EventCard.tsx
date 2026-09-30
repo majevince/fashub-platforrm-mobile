@@ -8,6 +8,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { resolveMediaUrl, toggleSavedItem, attendEvent, unattendEvent } from '@fashub/api-client';
 import type { EventListItem } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
+import { PageVerifiedBadge } from '../PageVerifiedBadge';
 import { AvatarStack } from '../ui/AvatarStack';
 
 function formatEventDate(startDate: string, endDate?: string | null) {
@@ -165,16 +166,18 @@ export function EventCard({
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line, marginTop: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.gold, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-              {event.organizer?.avatar ? (
-                <Image source={{ uri: resolveMediaUrl(event.organizer.avatar) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+              {event.organizerPage?.avatar ?? event.organizer?.avatar ? (
+                <Image source={{ uri: resolveMediaUrl(event.organizerPage?.avatar ?? event.organizer?.avatar) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
               ) : (
-                <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>{(event.organizer?.displayName ?? event.organizerName ?? '?').slice(0, 1).toUpperCase()}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>{(event.organizerPage?.name ?? event.organizer?.displayName ?? event.organizerName ?? '?').slice(0, 1).toUpperCase()}</Text>
               )}
             </View>
             <Text style={{ fontSize: 11, fontWeight: '500', color: colors.inkSoft, flexShrink: 1 }} numberOfLines={1}>
-              {event.organizer?.displayName ?? event.organizerName ?? 'FaSHub'}
+              {event.organizerPage?.name ?? event.organizer?.displayName ?? event.organizerName ?? 'FaSHub'}
             </Text>
-            {event.organizer && isVerified({ subscriptionTier: event.organizer.subscriptionTier }) ? <VerifiedBadge size="sm" /> : null}
+            {event.organizerPage
+              ? (event.organizerPage.verified ? <PageVerifiedBadge size="sm" /> : null)
+              : (event.organizer && isVerified({ subscriptionTier: event.organizer.subscriptionTier }) ? <VerifiedBadge size="sm" /> : null)}
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

@@ -82,8 +82,13 @@ export function EventPostCard({ event, organizerName, organizerAvatar, viewerId,
   const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const timeLabel = start ? (end ? `${timeOf(start)} – ${timeOf(end)}` : timeOf(start)) : event.time ?? null;
 
-  const orgName = live?.organizer?.displayName ?? live?.organizerName ?? organizerName;
-  const orgAvatar = live?.organizer?.avatar ?? organizerAvatar ?? null;
+  // The fresh fetch (`live`) takes priority over the snapshot props when
+  // present, same as the other fields above — but it must check for a Page
+  // organizer too, or a Page-organized event's live refetch would silently
+  // overwrite the caller's already-correct Page identity with the personal
+  // organizer underneath it.
+  const orgName = live?.organizerPage?.name ?? live?.organizer?.displayName ?? live?.organizerName ?? organizerName;
+  const orgAvatar = live?.organizerPage?.avatar ?? live?.organizer?.avatar ?? organizerAvatar ?? null;
 
   const place = event.location && event.location !== 'Virtual Event'
     ? (() => {

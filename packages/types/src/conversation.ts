@@ -28,6 +28,8 @@ export interface ConversationParticipant {
   userRole: string;
   subscriptionTier?: 'free' | 'pro' | 'business';
   isVerified?: boolean;
+  /** Set when this participant slot is a Page, not the personal account underneath it (userId/userName/userAvatar are that account's owner in that case, an FK anchor — not what to render). The chat UI shows this Page's own identity instead when present. */
+  page?: { id: string; name: string; handle: string; avatar: string | null; verified: boolean } | null;
 }
 
 export interface Conversation {

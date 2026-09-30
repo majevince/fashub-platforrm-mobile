@@ -27,6 +27,8 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile, resolveMediaUrl } from '@fashub/api-client';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
+import { useMyPages } from '../../hooks/useMyPages';
+import { Layers } from 'lucide-react-native';
 
 const DRAWER_WIDTH = Math.min(300, Dimensions.get('window').width * 0.8);
 
@@ -35,7 +37,42 @@ const isProfessional = (role?: string) => role === 'designer' || role === 'tailo
 const FEATURES_ITEMS = [
   { key: 'events', label: 'Events', href: '/events', Icon: CalendarDays },
   { key: 'communities', label: 'Communities', href: '/communities', Icon: Users2 },
+  { key: 'pages', label: 'Pages', href: '/page', Icon: Layers },
 ] as const;
+
+/**
+ * Mobile equivalent of Agent 2's web sidebar card, per this ticket's own
+ * spec — same data (useMyPages, same endpoint web's card would read too),
+ * platform-native row layout. Only rendered when the user actually admins
+ * at least one Page, same as the analytics/upgrade cards above it are only
+ * shown when relevant.
+ */
+function PagesWidget({ onNavigate }: { onNavigate: (href: string) => void }) {
+  const { colors } = useTheme();
+  const { pages } = useMyPages(true);
+
+  if (pages.length === 0) return null;
+
+  return (
+    <View style={{ marginHorizontal: 20, marginTop: 10, marginBottom: 4, gap: 6 }}>
+      {pages.map((page) => (
+        <Pressable
+          key={page.id}
+          onPress={() => onNavigate(`/page/${page.handle}`)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.ivoryDeep, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12 }}
+        >
+          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.gold }}>{page.name.slice(0, 2).toUpperCase()}</Text>
+          </View>
+          <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.ink }} numberOfLines={1}>{page.name}</Text>
+          <Text style={{ fontSize: 10.5, color: colors.inkSoft }}>{page.visitorCount} visits</Text>
+          <Text style={{ fontSize: 10.5, color: colors.inkSoft }}>·</Text>
+          <Text style={{ fontSize: 10.5, color: colors.inkSoft }}>{page.followerCount} followers</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
 
 /**
  * Ports fashub_menu_full_redesign mock's upgrade card 1:1 (gradient, icon
@@ -381,6 +418,7 @@ export function AppDrawer({ visible, onClose }: { visible: boolean; onClose: () 
             />
 
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              <PagesWidget onNavigate={navigate} />
               {showProCard ? <CreatorProCard onNavigate={navigate} /> : null}
               {showAnalyticsTeaser ? <AnalyticsTeaserCard onNavigate={navigate} /> : null}
 

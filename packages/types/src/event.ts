@@ -77,6 +77,13 @@ export interface EventOrganizerSummary {
   subscriptionTier?: string | null;
 }
 
+/**
+ * Set when this event was created "posting as" a Page — takes over the
+ * organizer identity entirely, same posture as Post's pageAuthor. See
+ * PagePostAuthor (packages/types/src/page.ts).
+ */
+export type EventOrganizerPage = import('./page').PagePostAuthor;
+
 /** Matches GET /api/events (and the shape embedded in recommended/related responses) exactly. */
 export interface EventListItem {
   id: string;
@@ -107,6 +114,7 @@ export interface EventListItem {
   organizerId?: string | null;
   organizerName?: string | null;
   organizer?: EventOrganizerSummary | null;
+  organizerPage?: EventOrganizerPage | null;
   externalUrl?: string | null;
   capacity?: number | null;
   attendeeCount: number;

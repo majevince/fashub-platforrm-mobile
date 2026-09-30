@@ -22,6 +22,7 @@ import { getEvent, getRelatedEvents, attendEvent, unattendEvent, toggleSavedItem
 import type { EventDetail, EventListItem } from '@fashub/types';
 import { eventCategoryLabel } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
+import { PageVerifiedBadge } from '../../components/PageVerifiedBadge';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { PhotoGalleryViewer } from '../../components/PhotoGalleryViewer';
@@ -126,7 +127,12 @@ export default function EventDetailScreen() {
   const priceLabel = event.isFree ? 'Free' : event.price != null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: event.currency, maximumFractionDigits: 0 }).format(event.price) : null;
   const locationLine = buildEventLocationLine(event);
   const hasGeocodedLocation = !event.isVirtual && Number.isFinite(event.latitude) && Number.isFinite(event.longitude);
-  const organizerVerified = event.organizer ? isVerified({ subscriptionTier: event.organizer.subscriptionTier }) : false;
+  // A Page-organized event shows the Page's own identity — same resolution
+  // as web's event detail page (app/events/[eventId]/page.tsx).
+  const organizerPage = event.organizerPage ?? null;
+  const organizerDisplayName = organizerPage ? organizerPage.name : event.organizer?.displayName;
+  const organizerDisplayAvatar = organizerPage ? organizerPage.avatar : event.organizer?.avatar;
+  const organizerVerified = organizerPage ? organizerPage.verified : (event.organizer ? isVerified({ subscriptionTier: event.organizer.subscriptionTier }) : false);
   const spotsRemaining = event.capacity != null ? event.capacity - attendeeCount : null;
   const hasAdditionalInfo = !!(event.dresscode || event.ageRestriction || event.accessibilityInfo || event.parkingInfo);
 
@@ -346,23 +352,29 @@ export default function EventDetailScreen() {
             </View>
           ) : null}
 
-          {event.organizer || event.organizerName ? (
+          {organizerPage || event.organizer || event.organizerName ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: colors.line }}>
               <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.gold, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-                {event.organizer?.avatar ? (
-                  <Image source={{ uri: resolveMediaUrl(event.organizer.avatar) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                {organizerDisplayAvatar ? (
+                  <Image source={{ uri: resolveMediaUrl(organizerDisplayAvatar) ?? undefined }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                 ) : (
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{(event.organizer?.displayName ?? event.organizerName ?? '?').slice(0, 1).toUpperCase()}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{(organizerDisplayName ?? event.organizerName ?? '?').slice(0, 1).toUpperCase()}</Text>
                 )}
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>{event.organizer?.displayName ?? event.organizerName}</Text>
-                  {organizerVerified ? <VerifiedBadge size="sm" /> : null}
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.ink }}>{organizerDisplayName ?? event.organizerName}</Text>
+                  {organizerPage
+                    ? (organizerVerified ? <PageVerifiedBadge size="sm" /> : null)
+                    : (organizerVerified ? <VerifiedBadge size="sm" /> : null)}
                 </View>
-                <Text style={{ fontSize: 11, fontWeight: '400', color: VF.inkFaint }}>Organizer</Text>
+                <Text style={{ fontSize: 11, fontWeight: '400', color: VF.inkFaint }}>{organizerPage ? 'Page' : 'Organizer'}</Text>
               </View>
-              {event.organizer ? (
+              {organizerPage ? (
+                <Pressable onPress={() => router.push(`/page/${organizerPage.handle}`)}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.gold }}>View Page</Text>
+                </Pressable>
+              ) : event.organizer ? (
                 <Pressable onPress={() => router.push(`/profile/${event.organizer!.id}`)}>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: colors.gold }}>View Profile</Text>
                 </Pressable>

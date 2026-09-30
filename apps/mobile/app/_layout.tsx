@@ -5,7 +5,7 @@ import { useFonts, Fraunces_600SemiBold, Fraunces_600SemiBold_Italic } from '@ex
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { View } from 'react-native';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeProvider } from '../lib/stripeCompat';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { colors } from '@fashub/design-tokens';

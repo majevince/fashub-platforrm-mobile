@@ -67,7 +67,9 @@ export default function MessagesInboxScreen() {
       const q = query.trim().toLowerCase();
       list = list.filter((c) => {
         const other = c.participants.find((p) => p.userId !== user.id);
-        return other && (other.userName.toLowerCase().includes(q) || other.userRole.toLowerCase().includes(q));
+        if (!other) return false;
+        const name = other.page ? other.page.name : other.userName;
+        return name.toLowerCase().includes(q) || other.userRole.toLowerCase().includes(q);
       });
     }
     return list;

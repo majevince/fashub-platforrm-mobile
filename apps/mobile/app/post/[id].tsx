@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getPost, toggleLike, toggleSavedPost, resolveMediaUrl, ApiError } from '@fashub/api-client';
 import type { PostDetail } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../../components/VerifiedBadge';
+import { PageVerifiedBadge } from '../../components/PageVerifiedBadge';
 import { LoadingState } from '../../components/LoadingState';
 import { ErrorState } from '../../components/ErrorState';
 import { useCommentsThread } from '../../components/feed/useCommentsThread';
@@ -96,10 +97,15 @@ export default function PostDetailScreen() {
     );
   }
 
-  const avatarUri = resolveMediaUrl(post.authorAvatar);
+  // A Page-attributed post shows the Page's own identity — see PostCard.tsx's
+  // identical resolution (this screen renders its own separate header rather
+  // than reusing that component, so it needs the same fix independently).
+  const pageAuthor = post.pageAuthor ?? null;
+  const displayName = pageAuthor ? pageAuthor.name : post.authorName;
+  const avatarUri = resolveMediaUrl(pageAuthor ? pageAuthor.avatar : post.authorAvatar);
   const images = post.images;
   const resolvedImages = images.map((uri) => resolveMediaUrl(uri)).filter((v): v is string => !!v);
-  const verified = isVerified({ subscriptionTier: post.authorSubscriptionTier, verified: post.authorProfile.isVerified });
+  const verified = pageAuthor ? pageAuthor.verified : isVerified({ subscriptionTier: post.authorSubscriptionTier, verified: post.authorProfile.isVerified });
 
   const onMediaScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     setMediaIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W));
@@ -132,7 +138,7 @@ export default function PostDetailScreen() {
   };
 
   const handleShare = () => {
-    Share.share({ message: `${post.title} — ${post.authorName} on FaSHub` }).catch(() => {});
+    Share.share({ message: `${post.title} — ${displayName} on FaSHub` }).catch(() => {});
   };
 
   return (
@@ -185,18 +191,23 @@ export default function PostDetailScreen() {
           </View>
 
           <View style={{ padding: 16, gap: 12 }}>
-            <Pressable onPress={() => router.push(`/profile/${post.authorId}`)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable
+              onPress={() => router.push(pageAuthor ? `/page/${pageAuthor.handle}` : `/profile/${post.authorId}`)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+            >
               <View style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: V.amberLine, backgroundColor: V.primary, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
                 {avatarUri ? (
                   <Image source={{ uri: avatarUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                 ) : (
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{post.authorName.slice(0, 2).toUpperCase()}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{displayName.slice(0, 2).toUpperCase()}</Text>
                 )}
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                  <Text style={{ fontWeight: '600', fontSize: 14.5, color: V.ink }} numberOfLines={1}>{post.authorName}</Text>
-                  {verified ? <VerifiedBadge size="sm" /> : null}
+                  <Text style={{ fontWeight: '600', fontSize: 14.5, color: V.ink }} numberOfLines={1}>{displayName}</Text>
+                  {pageAuthor
+                    ? (verified ? <PageVerifiedBadge size="sm" /> : null)
+                    : (verified ? <VerifiedBadge size="sm" /> : null)}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                   <Text style={{ fontSize: 10.5, fontWeight: '500', color: V.inkFaint }}>{formatDate(post.createdAt)}</Text>
@@ -218,7 +229,7 @@ export default function PostDetailScreen() {
                 <>
                   {text ? <Text style={{ fontSize: 13.5, lineHeight: 19, color: V.inkSoft }}>{text}</Text> : null}
                   {event ? (
-                    <EventPostCard event={event} organizerName={post.authorName} organizerAvatar={post.authorAvatar} viewerId={user?.id} defaultExpanded />
+                    <EventPostCard event={event} organizerName={displayName} organizerAvatar={pageAuthor ? pageAuthor.avatar : post.authorAvatar} viewerId={user?.id} defaultExpanded />
                   ) : null}
                 </>
               );

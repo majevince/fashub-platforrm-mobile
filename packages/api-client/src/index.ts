@@ -3,6 +3,17 @@ export { getHealth } from './health';
 export type { HealthStatus } from './health';
 export { ApiError, apiGet, apiPost, apiPatch, apiPut, apiDelete } from './http';
 export { login, signup, forgotPassword, validateResetToken, resetPassword, loginWithGoogle, loginWithApple } from './auth';
+export { getPage, createPage, updatePage, deactivatePage, followPage, unfollowPage, getPageStats, getMyPages, getPageViewAnalytics, getPagePerformanceStats, getPageAdmins, searchPageFollowers, addPageAdmin, updatePageAdmin, removePageAdmin, getPageRestrictions, searchRestrictionCandidates, addPageRestriction, removePageRestriction, getPageFollowing, addPageFollowing, removePageFollowing, uploadPageAvatar, uploadPageCoverPhoto, getPageInboxSettings, updatePageInboxSettings, getPageRatingStats, startPageConversation } from './pages';
+export {
+  getPageServices, createPageService, updatePageService, deletePageService,
+  getPageAvailabilityRules, createPageAvailabilityRule, deletePageAvailabilityRule,
+  getPageAvailabilityOverrides, createPageAvailabilityOverride, deletePageAvailabilityOverride,
+  getPageAvailableSlots, getPageBookings, createPageBooking, getPageBooking,
+  confirmPageBooking, approvePageBooking, cancelPageBooking, releasePageBooking, reschedulePageBooking,
+  generateBookingFeedUrl, getPageTimezone, setPageTimezone,
+  getPageAvailabilityStatus, joinPageBookingWaitlist, getPageBookingWaitlist,
+} from './pageBookings';
+export type { CreatePageServicePayload, AvailabilityStatusData, PageBookingWaitlistEntry } from './pageBookings';
 export { setAuthTokenProvider, setUnauthorizedHandler } from './session';
 export { resolveMediaUrl } from './media';
 export { getFeed } from './feed';
@@ -81,7 +92,7 @@ export { discoverProjects } from './discoverProjects';
 export { getNetworkProfiles } from './network';
 export { getPortfolioProjects, getPortfolioProject, trackProjectView, shareProject, createPortfolioProject, updatePortfolioProject, deletePortfolioProject } from './portfolioProjects';
 export type { PortfolioProjectInput } from './portfolioProjects';
-export { getReviews, createReview } from './reviews';
+export { getReviews, getPageReviews, createReview } from './reviews';
 export { getSuggestedCreators, getRecommendedProjects, getProjectDetailRecommendations } from './recommendations';
 export { trackProjectEngagement } from './projectEngagement';
 export { getTrending } from './trending';
@@ -91,3 +102,4 @@ export { uploadFiles } from './upload';
 export type { UploadableFile } from './upload';
 export { matchProfessionals } from './matching';
 export { sendInvites } from './invite';
+export { searchAll } from './search';

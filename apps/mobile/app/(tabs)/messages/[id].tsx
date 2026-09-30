@@ -18,6 +18,7 @@ import {
 import type { Conversation, ChatMessage, StoryGroup } from '@fashub/types';
 import { AvatarPresence } from '../../../components/messages/AvatarPresence';
 import { VerifiedBadge, isVerified } from '../../../components/VerifiedBadge';
+import { PageVerifiedBadge } from '../../../components/PageVerifiedBadge';
 import { MessageBubble } from '../../../components/messages/MessageBubble';
 import { MessageActionSheet } from '../../../components/messages/MessageActionSheet';
 import { ForwardModal } from '../../../components/messages/ForwardModal';
@@ -105,7 +106,11 @@ export default function ThreadScreen() {
   }, []);
 
   const other = useMemo(() => conversation?.participants.find((p) => p.userId !== user?.id) ?? null, [conversation, user?.id]);
-  const presence = useOnlineStatus(other?.userId, HEADER_PRESENCE_MS);
+  // A Page (a business inbox) has no online-status concept — other.userId
+  // for a Page participant is actually page.ownerId (a schema FK anchor,
+  // not a meaningful "is this person online" signal), so presence tracking
+  // is skipped entirely rather than showing the owner's own activity.
+  const presence = useOnlineStatus(other?.page ? undefined : other?.userId, HEADER_PRESENCE_MS);
 
   useEffect(() => {
     if (!id) return;
@@ -247,7 +252,7 @@ export default function ThreadScreen() {
     if (idx >= 0) listRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.4 });
   };
 
-  const replyPlaceholderName = other?.userName ?? '';
+  const replyPlaceholderName = other?.page?.name ?? other?.userName ?? '';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: V.surface }} edges={['top', 'bottom']}>
@@ -270,7 +275,22 @@ export default function ThreadScreen() {
           >
             <ChevronLeft size={22} color={V.ink} strokeWidth={2.6} />
           </Pressable>
-          {other ? (
+          {other && other.page ? (
+            // The other side is a Page (a business inbox), not a person —
+            // its own name/avatar, no online-status/"Active now" line.
+            <>
+              <AvatarPresence uri={other.page.avatar} name={other.page.name} size="sm" onlineStatus="offline" />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontWeight: '600', fontSize: 13, color: V.ink }} numberOfLines={1}>
+                    {other.page.name}
+                  </Text>
+                  {other.page.verified ? <PageVerifiedBadge size="sm" /> : null}
+                </View>
+                <Text style={{ fontWeight: '400', fontSize: 10, color: V.inkFaint }}>Page</Text>
+              </View>
+            </>
+          ) : other ? (
             <>
               <AvatarPresence uri={other.userAvatar} name={other.userName} size="sm" subscriptionTier={other.subscriptionTier} onlineStatus={presence.isOnline ? 'online' : 'offline'} />
               <View style={{ flex: 1, minWidth: 0 }}>

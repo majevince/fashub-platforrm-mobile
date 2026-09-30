@@ -4,8 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Plus } from 'lucide-react-native';
-import { Calendar, DateData } from 'react-native-calendars';
 import { useTheme } from '../../theme/ThemeProvider';
+import { CalendarPickerModal } from '../CalendarPickerModal';
 import { useAuth } from '../../context/AuthContext';
 import { createEvent, uploadFiles, ApiError, resolveMediaUrl } from '@fashub/api-client';
 import { EVENT_CATEGORIES, EVENT_CATEGORY_LABELS } from '@fashub/types';
@@ -552,46 +552,6 @@ export function CreateEventModal({ visible, onClose, onCreated }: Props) {
       />
       <OptionPickerModal visible={picker === 'startTime'} title="Start time" options={TIME_OPTIONS} selected={startDateTime ? startDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''} onSelect={(v) => { setStartDateTime(mergeTimePart(startDateTime, v)); setPicker(null); }} onClose={() => setPicker(null)} />
       <OptionPickerModal visible={picker === 'endTime'} title="End time" options={TIME_OPTIONS} selected={endDateTime ? endDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''} onSelect={(v) => { setEndDateTime(mergeTimePart(endDateTime, v)); setPicker(null); }} onClose={() => setPicker(null)} />
-    </Modal>
-  );
-}
-
-/** Calendar-grid date picker in the same bottom-sheet shell as OptionPickerModal — react-native-calendars is pure JS (no native linking), consistent with this app's avoidance of native modules that would need a dev-client rebuild. */
-function CalendarPickerModal({
-  visible, title, selectedDate, minDate, onSelect, onClose,
-}: {
-  visible: boolean;
-  title: string;
-  selectedDate?: string;
-  minDate?: string;
-  onSelect: (dateString: string) => void;
-  onClose: () => void;
-}) {
-  const { colors, fontFamilies } = useTheme();
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(20,18,16,0.4)', justifyContent: 'flex-end' }} onPress={onClose}>
-        <Pressable style={{ backgroundColor: colors.paper, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.line }}>
-            <Text style={{ fontFamily: fontFamilies.sansBold, fontSize: 15, color: colors.ink }}>{title}</Text>
-            <Pressable onPress={onClose} hitSlop={8}><X size={18} color={colors.inkSoft} /></Pressable>
-          </View>
-          <Calendar
-            current={selectedDate ?? minDate}
-            minDate={minDate}
-            markedDates={selectedDate ? { [selectedDate]: { selected: true, selectedColor: colors.gold } } : {}}
-            onDayPress={(day: DateData) => onSelect(day.dateString)}
-            theme={{
-              todayTextColor: colors.gold,
-              arrowColor: colors.gold,
-              selectedDayBackgroundColor: colors.gold,
-              textDayFontFamily: fontFamilies.sans,
-              textMonthFontFamily: fontFamilies.sansBold,
-              textDayHeaderFontFamily: fontFamilies.sansSemiBold,
-            }}
-          />
-        </Pressable>
-      </Pressable>
     </Modal>
   );
 }

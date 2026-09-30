@@ -1,5 +1,11 @@
 export type { UserRole, User } from './user';
 export type { LoginPayload, SignupPayload, AuthResponse, AppleSsoUser } from './auth';
+export type { PageTier, PageAdminRole, PageAdminUser, PageDetail, PageViewerState, PageResponse, MyPageSummary, FollowedPageSummary, MyPagesResponse, PageStats, CreatePagePayload, PagePostAuthor, PageFollowerSearchResult, PageRestrictedMember, PageFollowedPageSummary, PageInboxSettings, PagePerformanceStats } from './page';
+export type { PagePermission } from './pagePermissions';
+export { PAGE_ROLE_LABEL, ASSIGNABLE_PAGE_ROLES, hasPagePermission, getPagePermissions, ALL_PAGE_PERMISSIONS, PAGE_PERMISSION_LABEL } from './pagePermissions';
+export type { PageServiceLocationType, PageService, PageAvailabilityRule, PageAvailabilityOverride, AvailableSlot, PageBookingStatus, PageBooking } from './pageBooking';
+export type { SearchPersonResult, SearchPageResult, SearchEventResult, SearchProjectResult, SearchBucket, SearchAllResponse, SearchCategory } from './search';
+export { CURRENCY_OPTIONS } from './pageBooking';
 export type { PostComment, CommentReactionType, FeedPost, FeedResponse, FeedFilter, PostCategory, CreatePostPayload, PostDetail, UserPost } from './post';
 export type { CreatorAnalyticsDaily, CreatorAnalyticsTopItem, CreatorAnalytics } from './creatorAnalytics';
 export type {
@@ -7,6 +13,7 @@ export type {
   EventStatus,
   EventAgendaItem,
   EventOrganizerSummary,
+  EventOrganizerPage,
   EventListItem,
   EventDetail,
   EventsListResponse,

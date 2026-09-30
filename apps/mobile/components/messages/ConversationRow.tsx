@@ -7,6 +7,7 @@ import { resolveMediaUrl } from '@fashub/api-client';
 import type { Conversation } from '@fashub/types';
 import { AvatarPresence } from './AvatarPresence';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
+import { PageVerifiedBadge } from '../PageVerifiedBadge';
 import { formatRelativeTime, getInquiryPreviewType } from '../../lib/chatFormat';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
@@ -27,12 +28,19 @@ const CONVERSATION_ROW_PREVIEW_SIZE = 12.5;
 export function ConversationRow({ conversation, currentUserId, onPress }: { conversation: Conversation; currentUserId: string; onPress: () => void }) {
   const router = useRouter();
   const other = conversation.participants.find((p) => p.userId !== currentUserId);
-  const presence = useOnlineStatus(other?.userId, INBOX_PRESENCE_INTERVAL_MS);
+  // A Page (a business inbox) has no online-status concept — other.userId
+  // for a Page participant is page.ownerId (a schema FK anchor, not a
+  // meaningful presence signal), so it's skipped entirely for a Page.
+  const presence = useOnlineStatus(other?.page ? undefined : other?.userId, INBOX_PRESENCE_INTERVAL_MS);
   if (!other) return null;
 
+  const isPage = !!other.page;
+  const displayName = other.page ? other.page.name : other.userName;
+  const displayAvatar = other.page ? other.page.avatar : other.userAvatar;
+  const profileHref = other.page ? `/page/${other.page.handle}` : `/profile/${other.userId}`;
   const unread = conversation.unreadCount > 0;
   const inquiryLabel = getInquiryPreviewType(conversation.lastMessage);
-  const verified = isVerified({ subscriptionTier: other.subscriptionTier, verified: other.isVerified });
+  const verified = isPage ? !!other.page?.verified : isVerified({ subscriptionTier: other.subscriptionTier, verified: other.isVerified });
   const isPro = other.subscriptionTier === 'pro' || other.subscriptionTier === 'business';
 
   return (
@@ -52,13 +60,13 @@ export function ConversationRow({ conversation, currentUserId, onPress }: { conv
       {/* Nested Pressable — RN targets the innermost interactive element on
           tap, so this overrides the row's own onPress for just this
           sub-region without needing stopPropagation. */}
-      <Pressable onPress={() => router.push(`/profile/${other.userId}`)} hitSlop={4}>
+      <Pressable onPress={() => router.push(profileHref)} hitSlop={4}>
         <AvatarPresence
-          uri={other.userAvatar}
-          name={other.userName}
+          uri={displayAvatar}
+          name={displayName}
           size="md"
-          subscriptionTier={other.subscriptionTier}
-          onlineStatus={presence.isOnline ? 'online' : 'offline'}
+          subscriptionTier={isPage ? undefined : other.subscriptionTier}
+          onlineStatus={isPage ? 'offline' : (presence.isOnline ? 'online' : 'offline')}
         />
       </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -73,9 +81,9 @@ export function ConversationRow({ conversation, currentUserId, onPress }: { conv
             }}
             numberOfLines={1}
           >
-            {other.userName}
+            {displayName}
           </Text>
-          {verified ? <VerifiedBadge size="sm" /> : null}
+          {verified ? (isPage ? <PageVerifiedBadge size="sm" /> : <VerifiedBadge size="sm" />) : null}
         </View>
         {conversation.lastMessageThumbnail ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
@@ -92,7 +100,7 @@ export function ConversationRow({ conversation, currentUserId, onPress }: { conv
             style={{ fontFamily: fontFamilies.sans, fontSize: CONVERSATION_ROW_PREVIEW_SIZE, lineHeight: 17, color: V.inkFaint, marginTop: 1 }}
             numberOfLines={1}
           >
-            {conversation.lastMessage || (isPro ? other.userRole : `${other.userRole.charAt(0).toUpperCase()}${other.userRole.slice(1)}`)}
+            {conversation.lastMessage || (isPage ? 'Page' : isPro ? other.userRole : `${other.userRole.charAt(0).toUpperCase()}${other.userRole.slice(1)}`)}
           </Text>
         )}
         {inquiryLabel ? (

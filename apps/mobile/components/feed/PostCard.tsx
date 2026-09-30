@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext';
 import { toggleLike, toggleSavedPost, resolveMediaUrl } from '@fashub/api-client';
 import type { FeedPost } from '@fashub/types';
 import { VerifiedBadge, isVerified } from '../VerifiedBadge';
+import { PageVerifiedBadge } from '../PageVerifiedBadge';
+import { AvailabilityDotCompact } from '../pages/AvailabilityStatusIndicator';
 import { CommentsSheet } from './CommentsSheet';
 import { RepostModal, type RepostTarget } from './RepostModal';
 import { PostShareModal } from './PostShareModal';
@@ -61,6 +63,13 @@ export function PostCard({ post, onReposted }: Props) {
   const { user } = useAuth();
   const router = useRouter();
   const openDetail = () => router.push(`/post/${post.id}`);
+
+  // A Page-attributed post (post.pageAuthor set) shows the Page's own
+  // identity — never the admin who actually posted it. Same resolution web's
+  // PostCard.tsx already does; mobile just never checked for it. Computed
+  // early since repostTarget below also needs it.
+  const pageAuthor = post.pageAuthor ?? null;
+  const displayName = pageAuthor ? pageAuthor.name : post.authorName;
 
   // Event announcements embed their metadata in the description after a
   // sentinel — split it so the caption reads as text and the event renders
@@ -121,10 +130,10 @@ export function PostCard({ post, onReposted }: Props) {
       ? {
           id: post.originalPostId || post.originalPost.id,
           title: post.originalPost.title,
-          authorName: post.originalPost.authorName,
+          authorName: post.originalPost.pageAuthor?.name ?? post.originalPost.authorName,
           images: post.originalPost.images,
         }
-      : { id: post.id, title: post.title, authorName: post.authorName, images: post.images };
+      : { id: post.id, title: post.title, authorName: displayName, images: post.images };
 
   // Web builds its optimistic repost entry by spreading the already-loaded
   // post data + repost metadata (app/feed/page.tsx handleRepost) rather than
@@ -164,6 +173,7 @@ export function PostCard({ post, onReposted }: Props) {
         authorRole: original.authorRole,
         authorSubscriptionTier: original.authorSubscriptionTier,
         authorIsVerified: original.authorIsVerified,
+        pageAuthor: original.pageAuthor ?? null,
         title: original.title,
         description: original.description,
         images: original.images,
@@ -182,9 +192,9 @@ export function PostCard({ post, onReposted }: Props) {
     setMediaIndex(idx);
   };
 
-  const avatarUri = resolveMediaUrl(post.authorAvatar);
+  const avatarUri = resolveMediaUrl(pageAuthor ? pageAuthor.avatar : post.authorAvatar);
   const images = post.images;
-  const verified = isVerified({ subscriptionTier: post.authorSubscriptionTier, verified: post.authorIsVerified });
+  const verified = pageAuthor ? pageAuthor.verified : isVerified({ subscriptionTier: post.authorSubscriptionTier, verified: post.authorIsVerified });
 
   return (
     <View
@@ -209,20 +219,27 @@ export function PostCard({ post, onReposted }: Props) {
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
           ) : (
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>{post.authorName.slice(0, 2).toUpperCase()}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>{displayName.slice(0, 2).toUpperCase()}</Text>
           )}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             <Text style={{ fontWeight: '600', fontSize: 14.5, color: V.ink }} numberOfLines={1}>
-              {post.authorName}
+              {displayName}
             </Text>
-            {verified ? <VerifiedBadge size="sm" /> : null}
+            {pageAuthor ? (
+              <>
+                {verified ? <PageVerifiedBadge size="sm" /> : null}
+                <AvailabilityDotCompact pageHandle={pageAuthor.handle} />
+              </>
+            ) : (
+              verified ? <VerifiedBadge size="sm" /> : null
+            )}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
             <View style={{ backgroundColor: V.primary, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1.5 }}>
               <Text style={{ fontSize: 8.5, fontWeight: '700', letterSpacing: 0.4, color: '#fff', textTransform: 'uppercase' }}>
-                {post.authorRole}
+                {pageAuthor ? 'Page' : post.authorRole}
               </Text>
             </View>
             <Text style={{ fontSize: 10, fontWeight: '500', color: V.inkFaint }}>
@@ -314,8 +331,8 @@ export function PostCard({ post, onReposted }: Props) {
         {eventMeta ? (
           <EventPostCard
             event={eventMeta}
-            organizerName={post.authorName}
-            organizerAvatar={post.authorAvatar}
+            organizerName={displayName}
+            organizerAvatar={pageAuthor ? pageAuthor.avatar : post.authorAvatar}
             viewerId={user?.id}
           />
         ) : null}

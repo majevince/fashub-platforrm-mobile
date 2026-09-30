@@ -1,3 +1,5 @@
+import type { PagePostAuthor } from './page';
+
 /** Matches web's CommentReactionType (Prisma enum + lib/comments/shapeComments.ts). */
 export type CommentReactionType = 'like' | 'love' | 'celebrate' | 'funny' | 'insightful';
 
@@ -42,6 +44,8 @@ export interface FeedPost {
   authorRole: string;
   authorSubscriptionTier: string;
   authorIsVerified: boolean;
+  /** Set when this post was made "posting as" a Page — takes over the author identity entirely. See PagePostAuthor. */
+  pageAuthor?: PagePostAuthor | null;
   title: string;
   description: string;
   images: string[];
@@ -67,6 +71,7 @@ export interface FeedPost {
     authorRole: string;
     authorSubscriptionTier: string;
     authorIsVerified: boolean;
+    pageAuthor?: PagePostAuthor | null;
     title: string;
     description: string;
     images: string[];
@@ -92,6 +97,8 @@ export interface PostDetail {
   authorAvatar: string | null;
   authorRole: string;
   authorSubscriptionTier: string;
+  /** Set when this post was made "posting as" a Page — takes over the author identity entirely. See PagePostAuthor. */
+  pageAuthor?: PagePostAuthor | null;
   authorProfile: {
     id: string;
     businessName: string | null;

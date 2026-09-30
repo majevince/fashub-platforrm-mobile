@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Alert } from 'react-native';
-import { useStripe } from '@stripe/stripe-react-native';
+import { useStripe } from '../../../../lib/stripeCompat';
 import { CreditCard, Trash2, Star } from 'lucide-react-native';
 import { useTheme } from '../../../../theme/ThemeProvider';
 import { useAuth } from '../../../../context/AuthContext';

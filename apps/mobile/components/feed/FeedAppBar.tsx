@@ -96,10 +96,20 @@ export function FeedAppBar({ onRefresh }: Props) {
           </Pressable>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: V.canvas, borderWidth: 1, borderColor: V.line, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginTop: 12 }}>
+      {/* Search-parity ticket: this used to be a plain View/Text with no
+          input or handler at all — not even a stub API call, entirely
+          disconnected. Tapping now opens the real search screen (same
+          GET /api/search web's header search bar and /search-results page
+          both use), which owns its own text input rather than duplicating
+          one here — matches how the bell/menu icons on this same bar are
+          just navigation triggers, not the screens themselves. */}
+      <Pressable
+        onPress={() => router.push('/search')}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: V.canvas, borderWidth: 1, borderColor: V.line, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginTop: 12 }}
+      >
         <Search size={16} color={V.inkFaint} strokeWidth={2} />
         <Text style={{ fontSize: 13.5, fontWeight: '400', color: V.inkFaint }}>Search designers, tailors, communities…</Text>
-      </View>
+      </Pressable>
 
       <AppDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </View>
